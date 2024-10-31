@@ -1,0 +1,275 @@
+{% extends "layouts/module_admin.html" %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="z2m">Zigbee2mqtt</a></li>
+{% endblock %}
+{% block module %}
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+<div id="edit_device">
+    <form @submit.prevent="updateDevice">
+        <div class="input-group my-3">
+            <span class="input-group-text" id="inputGroup-sizing-sm">
+                <img :src='"https://www.zigbee2mqtt.io/images/devices/"+ device.model+".jpg"' height="30px" :alt="device.type" onError="this.src='/z2m/static/z2m.png'"/>
+            </span>
+            <span class="input-group-text" id="inputGroup-sizing-sm">Name</span>
+            <input type="text" class="form-control" id="name" readonly v-model="device.title">
+        </div>
+        <div class="input-group mb-3">
+            <span class="input-group-text" id="inputGroup-sizing-sm">Description</span>
+            <input type="text" class="form-control" id="name" v-model="device.description">
+        </div>
+        <div class="input-group mb-3">
+            <span class="input-group-text" id="inputGroup-sizing-sm">IEEADDR</span>
+            <input type="text" class="form-control" readonly id="name" readonly v-model="device.ieeaddr">
+        </div>
+        <div class="input-group">
+            <span class="input-group-text" id="inputGroup-sizing-sm">Full path:</span>
+            <input type="text" class="form-control" readonly id="name" readonly v-model="device.full_path">
+        </div>
+        
+        <button class="btn btn-primary mt-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExample" aria-expanded="false" aria-controls="collapseExample">
+            Information
+        </button>
+        <div class="collapse" id="collapseExample">
+          <div class="card card-body">
+            <div class="input-group mb-3">
+                <span class="input-group-text" id="inputGroup-sizing-sm">Manufacturer</span>
+                <input type="text" class="form-control" id="name" readonly v-model="device.manufacturer_id">
+            </div>
+            <div class="input-group mb-3">
+                <span class="input-group-text" id="inputGroup-sizing-sm">Model</span>
+                <input type="text" class="form-control" id="name" readonly v-model="device.model">
+            </div>
+            <div class="input-group mb-3">
+                <span class="input-group-text" id="inputGroup-sizing-sm">Model name</span>
+                <input type="text" class="form-control" id="name" readonly v-model="device.model_name">
+            </div>
+            <div class="input-group mb-3">
+                <span class="input-group-text" id="inputGroup-sizing-sm">Model description</span>
+                <input type="text" class="form-control" id="name" readonly v-model="device.model_description">
+            </div>
+            <div class="input-group">
+                <span class="input-group-text" id="inputGroup-sizing-sm">Vendor</span>
+                <input type="text" class="form-control" id="name" readonly v-model="device.vendor">
+            </div>
+          </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title">Parameters</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive" v-if="device.props.length > 0">
+                    <table class="table table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Value</th>
+                                <th>Link</th>
+                                <th>Updated</th>
+                                <th>&nbsp;</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(item,index) in device.props" :key="'cmnd_'+index">
+                                <td><b>[[ item.title ]]</b></td>
+                                <td>[[ item.value ]] <b v-if="item.converted">([[item.converted]])</b></td>
+                                <td>
+                                    <div v-if="item.linked_object">
+                                        [[item.linked_object]].[[item.linked_property]][[item.linked_method]]
+                                        <span v-if="item.read_only" class="ms-1">[r]</span>
+                                        <span v-if="item.process_type == 1" class="ms-1">[a]</span>
+                                        <span v-if="item.round" class="ms-1">{[[item.round]]}</span>
+                                        <span v-if="item.min_period" class="ms-1">~[[item.min_period]]~</span>
+                                    </div>
+                                </td>
+                                <td>[[ item.updated ]]</td>
+                                <td>
+                                    <a class="btn btn-success ms-2 ms-auto" @click="editProp(item)" title="Edit"><i class="fas fa-pencil-alt"></i></a>
+                                    <a class="btn btn-danger ms-2 ms-auto" @click="delProp(item.id)" title="Delete"><i class="fas fa-trash"></i></a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-else >Empty</div>
+    </div>
+        </div>
+        <div class="my-2 mt-3">
+            <button class="btn btn-success" type="submit">
+                <span v-if="isSaving" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                Save
+            </button>
+            <a href="z2m" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+    <p>[[ message ]]</p>
+        <!-- Модальное окно с настройками -->
+    <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel">Settings link</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div v-if="edit_item" class="modal-body">
+                        <div>
+                            <label class="form-check-label" for="flexCheckDefault">
+                                Linked object
+                            </label>
+                            <select-with-filter placeholder="Select object" :options="objectOptions" v-model="edit_item.linked_object" @changed="edit_item.linked_property = null"></select-with-filter>
+                        </div>
+                        <div v-if="edit_item.linked_object && edit_item.linked_object in objects">
+                            <label class="form-check-label" for="flexCheckDefault">
+                                Linked property
+                            </label>
+                            <select-with-filter placeholder="Select property" :options="objects[edit_item.linked_object].properties" v-model="edit_item.linked_property"></select-with-filter>
+                        </div>
+                        <div v-if="edit_item.linked_object && edit_item.linked_object in objects">
+                            <label class="form-check-label" for="flexCheckDefault">
+                                Linked method
+                            </label>
+                            <select-with-filter placeholder="Select method" :options="objects[edit_item.linked_object].methods" v-model="edit_item.linked_method"></select-with-filter>
+                        </div>
+                        <div  v-if="edit_item.linked_object">
+                            <label class="form-label me-3">Process type</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" :value="0" v-model="edit_item.process_type">
+                                <label class="form-check-label">Only new</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" :value="1" v-model="edit_item.process_type">
+                                <label class="form-check-label">All</label>
+                            </div>
+                        </div>
+                        <div v-if="edit_item.linked_object">
+                            <input class="form-check-input" type="checkbox" v-model="edit_item.read_only" >
+                            <label class="form-check-label">
+                                Readonly
+                            </label>
+                        </div>
+                        <div v-if="edit_item.linked_object">
+                            <label class="form-label">Round</label>
+                            <input type="number" class="form-control" v-model="edit_item.round">
+                        </div>
+                        <div v-if="edit_item.linked_object">
+                            <label class="form-label">Minimal period (ms)</label>
+                            <input type="number" class="form-control" v-model="edit_item.min_period">
+                        </div>
+                        <div v-if="edit_item.linked_object">
+                            <label class="form-label">Converter</label>
+                            <select class="form-select" v-model="edit_item.converter">
+                                <option :value="0">Default</option>
+                                <option :value="1">No convert</option>
+                                <option :value="2">online/offline = 1/0</option>
+                                <option :value="3">ColorXY = Hex RGB</option>
+                                <option :value="4">DateTime = timestamp</option>
+                                <option :value="5">Value <=> %</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+    </div>
+</div>
+<script src="{{ config.ASSETS_ROOT }}/js/components/select-with-filter.js"></script>
+<script>
+    new Vue({
+        el: '#edit_device',
+        delimiters: ['[[', ']]'], // Измененные разделители
+        data: {
+            isSaving: false,
+            device: {
+                id: '', // Идентификатор 
+                title: '',
+                type: null,
+                props:[],
+            },
+            message: '',
+            objects:[],
+            edit_item:null,
+            
+        },
+        async created() {
+            await this.fetchObjects()
+            const deviceId = '{{id}}';
+           //this.message = deviceId
+            if (deviceId != 'None')
+                this.fetchDevice(deviceId);
+        },
+        computed:{
+            objectOptions(){
+                list = {}
+                Object.keys(this.objects).forEach(key => {
+                    list[key] = this.objects[key].description
+                });
+                return list
+            }
+        },
+        methods: {
+            fetchObjects(){
+                axios.get(`/api/object/list/details`)
+                    .then(response => {
+                        this.objects = response.data.result
+                    })
+                    .catch(error => {
+                        console.log(error)
+                        this.message = 'Error fetching: ' + error;
+                    });
+            },
+            fetchDevice(deviceId) {
+                axios.get(`/z2m/device/${deviceId}`)
+                    .then(response => {
+                        var device = response.data;
+                        this.device = device;
+                    })
+                    .catch(error => {
+                        console.log(error)
+                        this.message = 'Error fetching device: ' + error;
+                    });
+            },
+            updateDevice() {
+                this.isSaving = true
+                this.message = 'Saving...'
+                // Обновление данных пользователя на сервере
+                axios.post(`/z2m/device/${this.device.id}`, this.device)
+                    .then(response => {
+                        this.message = 'Device updated successfully!';
+                        this.isSaving = false
+                        window.location.href = 'z2m';
+                    })
+                    .catch(error => {
+                        this.message = 'Error updating device: ' + error;
+                        this.isSaving = false
+                    });
+            },
+
+            delProp(id) {
+                // Удаляем запись из словаря
+                this.$delete(this.device.props, id);
+                //todo delete from DB
+                axios.get(`/z2m/delete_prop/${id}`)
+                    .then(response => {
+                        console.log(response.data)
+                    })
+                    .catch(error => {
+                        console.log(error)
+                        this.message = 'Error fetching device: ' + error;
+                    });
+            },
+            editProp(item){
+                this.edit_item=item
+                console.log(this.edit_item)
+                $('#exampleModal').modal('show');
+            }
+        }
+    });
+</script>
+    
+{% endblock %}

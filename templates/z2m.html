@@ -1,0 +1,110 @@
+{% extends "layouts/module_admin.html" %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="z2m">Zigbee2MQTT</a></li>
+{% endblock %}
+{% block module %}
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
+    Settings
+</button>
+
+<div class="table-responsive">
+    <table class="table table-hover table-striped">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Description</th>
+                <th>Title</th>
+                <th>Model</th>
+                <th>Online</th>
+                <th>Battery</th>
+                <th>Data</th>
+                <th>Updated</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device in devices %}
+            <tr>
+                <td  class="py-1" style="vertical-align:middle">
+                    {% if device.model!="" %}<a href="https://www.zigbee2mqtt.io/devices/{{device.model}}.html" target="_blank">{%endif%}
+                     <img src="https://www.zigbee2mqtt.io/images/devices/{{device.model}}.jpg" height="30px"  onError="this.src='/z2m/static/z2m.png'">
+                     </a>
+                   </td>
+                <td class="py-1">{{ device.description }}</td>
+                <td class="py-1">{{ device.title }}</td>
+                <td class="py-1">{{ device.model_name }}</td>
+                <td class="py-1">
+                    {% if device.is_hub!="1" and device.title!="Coordinator" and device.availability!=""%}
+                        {%if device.availability=='online'%}
+                        <span class="badge bg-success">Online</span>
+                        {%else%}
+                        <span class="badge bg-danger">Offline</span>
+                        {%endif%}
+                    {%else%}
+                    n/a
+                    {%endif%}
+                </td>
+                <td class="py-1 {{device.battery_warn}}">
+                    {%if device.is_battery %}{{device.battery_level}}{%endif%}
+                </td>
+                <td class="py-1" id="dev{{device.id}}_data">
+                    {%for item in device.data%}
+                        <b>{{item.title}}</b> - {{item.linked_object}}.{{item.linked_property}}{{item.linked_method}}
+                        {% if item.read_only%}[r]{%endif%}
+                        {% if item.process_type%}[a]{%endif%}
+                        {% if item.round%}[{{item.round}}]{%endif%}
+                        {% if item.min_period%}~{{item.min_period}}~{%endif%}
+                         = <b>{{item.value}}</b>
+                         {% if item.converted%}({{item.converted}}){%endif%}<br>
+                    {%endfor%}
+                </td>
+                <td class="py-1" id="dev{{device.id}}_updated">
+                    {{device.updated}}
+                </td>
+                <td  class="py-1" width="1%" nowrap>
+                    <div>
+                        <a href="?op=edit&id={{device.id}}" class="btn btn-success" title="Edit"><i class="feather icon-edit"></i></a>
+                        <a href="?op=delete&id={{device.id}}" onClick="return confirm('Are you sure? Please confirm.')" class="btn btn-danger" title="Delete"><i class="feather icon-trash"></i></a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+    <!-- Модальное окно с настройками -->
+    <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form  method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Поля формы -->
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.host.label(class="form-label") }}
+                        {{ form.host(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.port.label(class="form-label") }}
+                        {{ form.port(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                    {{ form.topic.label(class="form-label") }}
+                    {{ form.topic(class="form-control") }}
+                </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

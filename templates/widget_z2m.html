@@ -1,0 +1,9 @@
+<h3><a href="admin/z2m">Zigbee2mqtt</a></h3>
+<h4>Statistics</h4>
+<h5><span class="badge bg-success">Count devices: {{count}}</span></h5>
+{%if low_battery > 0%}
+<h5><span class="badge bg-warning text-black">Battery low: {{low_battery}}</span></h5>
+{%endif%}
+{%if low_battery > 0%}
+<h5><span class="badge bg-danger">Offline: {{offline}}</span></h5>
+{%endif%}
