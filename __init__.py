@@ -34,6 +34,8 @@ class z2m(BasePlugin):
         self._client.on_message = self.on_message
 
         if "host" in self.config:
+            if self.config.get("login",'') != '' and self.config.get("password",'') != '':
+                self._client.username_pw_set(self.config["login"], self.config["password"])
             # Подключаемся к брокеру MQTT
             self._client.connect(self.config.get("host",""), 1883, 0)
             # Запускаем цикл обработки сообщений в отдельном потоке
@@ -59,11 +61,15 @@ class z2m(BasePlugin):
             settings.host.data = self.config.get('host','')
             settings.port.data = self.config.get('port',1883)
             settings.topic.data = self.config.get('topic','')
+            settings.login.data = self.config.get('login','')
+            settings.password.data = self.config.get('password','')
         else:
             if settings.validate_on_submit():
                 self.config["host"] = settings.host.data
                 self.config["port"] = settings.port.data
                 self.config["topic"] = settings.topic.data
+                self.config["login"] = settings.login.data
+                self.config["password"] = settings.password.data
                 self.saveConfig()
         devs = ZigbeeDevices.query.order_by(ZigbeeDevices.title).all()
         devices = []
@@ -245,6 +251,22 @@ class z2m(BasePlugin):
                 topic = device.full_path + "/set"
                 payload = json.dumps({property.title:new_value})
                 self.mqttPublish(topic, payload)
+
+    def set_payload(self, device_name:str, payload:dict):
+        """Set parameters for device
+
+        Args:
+            device_name (str): Device name
+            payload (dict): Dict parameters 
+        """
+        with session_scope() as session:
+            device = session.query(ZigbeeDevices).filter(ZigbeeDevices.title == device_name).one_or_none()
+            if device:
+                # send to zigbee device
+                topic = device.full_path + "/set"
+                payload = json.dumps(payload)
+                self.mqttPublish(topic, payload)
+
 
     # Функция обратного вызова для подключения к брокеру MQTT
     def on_connect(self,client, userdata, flags, rc):

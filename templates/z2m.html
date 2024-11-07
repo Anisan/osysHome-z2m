@@ -79,7 +79,7 @@
             <div class="modal-content">
                 <form  method="POST">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">Settings</h5>
+                    <h5 class="modal-title" id="exampleModalLabel">Settings Z2M</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -94,9 +94,17 @@
                         {{ form.port(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                    {{ form.topic.label(class="form-label") }}
-                    {{ form.topic(class="form-control") }}
-                </div>
+                        {{ form.login.label(class="form-label") }}
+                        {{ form.login(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.password.label(class="form-label") }}
+                        {{ form.password(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.topic.label(class="form-label") }}
+                        {{ form.topic(class="form-control") }}
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
