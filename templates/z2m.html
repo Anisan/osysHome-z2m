@@ -54,8 +54,8 @@
                         {% if item.process_type%}[a]{%endif%}
                         {% if item.round%}[{{item.round}}]{%endif%}
                         {% if item.min_period%}~{{item.min_period}}~{%endif%}
-                         = <b>{{item.value}}</b>
-                         {% if item.converted%}({{item.converted}}){%endif%}<br>
+                         = <b id="z2p_{{item.id}}_value">{{item.value}}</b>
+                         {% if item.converted%}(<span id="z2p_{{item.id}}_converted">{{item.converted}}</span>){%endif%}<br>
                     {%endfor%}
                 </td>
                 <td class="py-1" id="dev{{device.id}}_updated">
@@ -72,6 +72,32 @@
         </tbody>
     </table>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        socket.on('connect', function() {
+            sid = socket.id;
+            socket.emit('subscribeData',["z2m"]);
+        });
+        socket.on('z2m', function(data) {
+            //console.log(data)
+            if (data.operation == "updateProperty"){
+                id = "z2p_"+data.data['id']+"_value"
+                if (document.getElementById(id))
+                    document.getElementById(id).innerHTML  = data.data.value;
+                id = "z2p_"+data.data['id']+"_converted"
+                if (document.getElementById(id))
+                    document.getElementById(id).innerHTML  = data.data.converted;
+            }
+            if (data.operation == "updateDevice"){
+                id = "dev"+data.data['id']+"_updated"
+                if (document.getElementById(id))
+                    document.getElementById(id).innerHTML  = data.data.updated;
+            }
+
+        });
+        socket.emit('subscribeData',["z2m"]);
+    })
+</script>
 
     <!-- Модальное окно с настройками -->
     <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">

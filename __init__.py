@@ -139,7 +139,7 @@ class z2m(BasePlugin):
                         prop_rec.round = prop['round']
                         prop_rec.min_period = prop['min_period']
                         prop_rec.process_type = prop['process_type']
-                        if prop_rec.linked_object:
+                        if prop_rec.linked_object and prop_rec.read_only == 0:
                             setLinkToObject(prop_rec.linked_object, prop_rec.linked_property, self.name)
 
                     session.commit()
@@ -273,7 +273,9 @@ class z2m(BasePlugin):
         self.logger.info('Connected with result code %s',rc)
         # Подписываемся на топик
         if self.config["topic"]:
-            self._client.subscribe(self.config["topic"])
+            topics = self.config["topic"].split(',')
+            for topic in topics:
+                self._client.subscribe(topic)
 
     def on_disconnect(self, client, userdata, rc):
         addNotify("Disconnect MQTT",str(rc),CategoryNotify.Error,self.name)
@@ -346,6 +348,8 @@ class z2m(BasePlugin):
                 device.updated = datetime.datetime.now()
                 device.full_path = re.sub(r'\/bridge.+|\/availability$', '', path)
                 session.commit()
+
+                self.sendDataToWebsocket("updateDevice",row2dict(device))
 
                 cache.set("z2m_dev:" + did, device.id, timeout=0)
                 device_id = device.id
@@ -445,7 +449,10 @@ class z2m(BasePlugin):
                     session.commit()
                 property_ = row2dict(property_)
             cache.set(f"z2m:prop_{device_id}_{prop}",property_, timeout=0)
-        if property_['min_period']:
+        if property_['min_period'] and property_['updated']:
+            if isinstance(property_['updated'], str):
+                from dateutil import parser
+                property_['updated'] = parser.parse(property_['updated'])
             if time.time() - property_['updated'].timestamp() < property_['min_period']:  # todo fix
                 return
         if isinstance(value, dict):
@@ -535,6 +542,8 @@ class z2m(BasePlugin):
                         else:
                             updatePropertyThread(property_['linked_object'] + '.' + property_['linked_property'], new_value, self.name)
                     session.commit()
+
+                    self.sendDataToWebsocket("updateProperty",property_)
 
         cache.set(f"z2m:prop_{device_id}_{prop}",property_, timeout=0)
 
