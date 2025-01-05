@@ -382,23 +382,30 @@ class z2m(BasePlugin):
                             device.title = friendly_name
                             device.updated = datetime.datetime.now()
                             session.commit()
-
-            for k, v in ar.items():
-                if isinstance(v, dict):
-                    v = json.dumps(v, separators=(',', ':'), ensure_ascii=False)
-                if k == 'action':
-                    try:
-                        self.process_data(device_id, f'action:{v}', time.strftime('%Y-%m-%d %H:%M:%S'))
-                    except Exception as ex:
-                        self.logger.exception(ex, exc_info=True)
+            if '/availability' in path:
                 try:
-                    self.process_data(device_id, k, v)
+                    v = json.loads(value)
+                    self.process_data(device_id, 'availability', v['state'])
                 except Exception as ex:
                     self.logger.error(ex, exc_info=True)
+            else:
+                for k, v in ar.items():
+                    if isinstance(v, dict):
+                        v = json.dumps(v, separators=(',', ':'), ensure_ascii=False)
+                    if k == 'action':
+                        try:
+                            self.process_data(device_id, f'action:{v}', time.strftime('%Y-%m-%d %H:%M:%S'))
+                        except Exception as ex:
+                            self.logger.exception(ex, exc_info=True)
+                    try:
+                        self.process_data(device_id, k, v)
+                    except Exception as ex:
+                        self.logger.error(ex, exc_info=True)
             with session_scope() as session:
                 sql = update(ZigbeeDevices).where(ZigbeeDevices.id == device_id).values(updated=datetime.datetime.now())
                 session.execute(sql)
                 session.commit()
+                self.sendDataToWebsocket("updateDevice",{"id":device_id,'updated':datetime.datetime.now()})
 
     def process_list_of_devices(self, path, data):
         with session_scope() as session:
