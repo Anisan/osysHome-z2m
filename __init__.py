@@ -127,7 +127,6 @@ class z2m(BasePlugin):
                     device.description = data['description']
 
                     for prop in data['props']:
-                        cache.delete(f"z2m:prop_{data['id']}_{prop}")
                         prop_rec = session.query(ZigbeeProperties).filter(ZigbeeProperties.device_id == device.id,ZigbeeProperties.title == prop['title']).one()
                         if prop_rec.linked_object:
                             removeLinkFromObject(prop_rec.linked_object, prop_rec.linked_property, self.name)
@@ -141,6 +140,9 @@ class z2m(BasePlugin):
                         prop_rec.process_type = prop['process_type']
                         if prop_rec.linked_object and prop_rec.read_only == 0:
                             setLinkToObject(prop_rec.linked_object, prop_rec.linked_property, self.name)
+
+                        self.logger.debug(f"❌ Delete from cache - z2m:prop_{data['id']}_{prop['title']}")
+                        cache.delete(f"z2m:prop_{data['id']}_{prop['title']}")
 
                     session.commit()
 
@@ -180,7 +182,7 @@ class z2m(BasePlugin):
             self.event.wait(1.0)
 
     def mqttPublish(self, topic, value, qos=0, retain=0):
-        self.logger.info("Publish: " + topic + " " + value)
+        self.logger.info("⬅️ Publish: " + topic + " " + value)
         self._client.publish(topic, str(value), qos=qos, retain=retain)
 
     def changeLinkedProperty(self, obj, prop, val):
@@ -267,7 +269,6 @@ class z2m(BasePlugin):
                 payload = json.dumps(payload)
                 self.mqttPublish(topic, payload)
 
-
     # Функция обратного вызова для подключения к брокеру MQTT
     def on_connect(self,client, userdata, flags, rc):
         self.logger.info('Connected with result code %s',rc)
@@ -275,6 +276,7 @@ class z2m(BasePlugin):
         if self.config["topic"]:
             topics = self.config["topic"].split(',')
             for topic in topics:
+                self.logger.info("🔹 Subscribe: " + topic)
                 self._client.subscribe(topic)
 
     def on_disconnect(self, client, userdata, rc):
@@ -294,11 +296,11 @@ class z2m(BasePlugin):
 
     # Функция обратного вызова для получения сообщений
     def on_message(self,client, userdata, msg):
-        self.logger.debug(msg.topic + " " + str(msg.payload))
         from_hub = 0
         did = msg.topic
         payload = msg.payload.decode('utf-8')
-
+        self.logger.debug("➡️ Recieve: " + msg.topic + " = " + str(payload))
+        
         if '/set' in msg.topic:
             return
 
@@ -327,7 +329,6 @@ class z2m(BasePlugin):
     def processMessage(self, path, did, value, hub):
         if re.search(r'#$', path):
             return 0
-        self.logger.debug(path + " " + str(value))
         device_id = cache.get("z2m_dev:" + did)
         if not device_id:
             with session_scope() as session:
@@ -455,7 +456,6 @@ class z2m(BasePlugin):
                     session.add(property_)
                     session.commit()
                 property_ = row2dict(property_)
-            cache.set(f"z2m:prop_{device_id}_{prop}",property_, timeout=0)
         if property_['min_period'] and property_['updated']:
             if isinstance(property_['updated'], str):
                 from dateutil import parser
@@ -542,8 +542,10 @@ class z2m(BasePlugin):
                 session.execute(sql)
                 if property_['linked_object']:
                     if property_['linked_method']:
+                        self.logger.info(f"🔹 Process data: call {property_['linked_object']}.{property_['linked_method']} Value:{new_value}")
                         callMethodThread(property_['linked_object'] + '.' + property_['linked_method'], {'VALUE': new_value, 'NEW_VALUE': new_value, 'OLD_VALUE': old_value, 'TITLE': prop}, self.name)
                     if property_['linked_property']:
+                        self.logger.info(f"🔹 Process data: set {property_['linked_object']}.{property_['linked_property']} Value:{new_value}")
                         if property_['process_type'] == 1:
                             setPropertyThread(property_['linked_object'] + '.' + property_['linked_property'], new_value, self.name)
                         else:
@@ -552,6 +554,7 @@ class z2m(BasePlugin):
 
                     self.sendDataToWebsocket("updateProperty",property_)
 
+        self.logger.debug(f"💾 Save in cache - z2m:prop_{device_id}_{prop} = {property_}")
         cache.set(f"z2m:prop_{device_id}_{prop}",property_, timeout=0)
 
         if prop == 'battery':

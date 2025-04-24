@@ -100,7 +100,8 @@
         </div>
         <div class="my-2 mt-3">
             <button class="btn btn-success" type="submit">
-                <span v-if="isSaving" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span v-if="isSaving" class="fas fa-rotate fa-spin me-2"></span>
+                <span v-else class="fas fa-save me-2"></span>
                 Save
             </button>
             <a href="z2m" class="btn btn-secondary">Cancel</a>
