@@ -6,7 +6,7 @@ import re
 from flask import redirect, render_template, request, jsonify
 from sqlalchemy import delete, update, or_
 import paho.mqtt.client as mqtt
-from app.database import session_scope, row2dict, db
+from app.database import session_scope, row2dict, db, get_now_to_utc
 from app.extensions import cache
 from app.authentication.handlers import handle_admin_required
 from app.core.main.BasePlugin import BasePlugin
@@ -339,14 +339,14 @@ class z2m(BasePlugin):
                     device = ZigbeeDevices()
                     device.title = did
                     device.ieeaddr = did
-                    device.updated = datetime.datetime.now()
+                    device.updated = get_now_to_utc()
                     device.full_path = re.sub(r'\/bridge.+|\/availability$', '', path)
                     if hub:
                         device.is_hub = 1
                     session.add(device)
                     session.commit()
 
-                device.updated = datetime.datetime.now()
+                device.updated = get_now_to_utc()
                 device.full_path = re.sub(r'\/bridge.+|\/availability$', '', path)
                 session.commit()
 
@@ -376,12 +376,12 @@ class z2m(BasePlugin):
                             device = ZigbeeDevices()
                             device.title = friendly_name
                             device.ieeaddr = ar['meta']['ieeeAddr']
-                            device.updated = datetime.datetime.now()
+                            device.updated = get_now_to_utc()
                             session.add(device)
                             session.commit()
                         elif device and device.title != friendly_name:
                             device.title = friendly_name
-                            device.updated = datetime.datetime.now()
+                            device.updated = get_now_to_utc()
                             session.commit()
             if '/availability' in path:
                 try:
@@ -403,10 +403,10 @@ class z2m(BasePlugin):
                     except Exception as ex:
                         self.logger.error(ex, exc_info=True)
             with session_scope() as session:
-                sql = update(ZigbeeDevices).where(ZigbeeDevices.id == device_id).values(updated=datetime.datetime.now())
+                sql = update(ZigbeeDevices).where(ZigbeeDevices.id == device_id).values(updated=get_now_to_utc())
                 session.execute(sql)
                 session.commit()
-                self.sendDataToWebsocket("updateDevice",{"id":device_id,'updated':datetime.datetime.now()})
+                self.sendDataToWebsocket("updateDevice",{"id":device_id,'updated':get_now_to_utc()})
 
     def process_list_of_devices(self, path, data):
         with session_scope() as session:
@@ -439,7 +439,7 @@ class z2m(BasePlugin):
                 if not device.description or device.description.strip().startswith('-'):
                     device.description = device.model_description + ' - ' + device.title
 
-                device.updated = datetime.datetime.now()
+                device.updated = get_now_to_utc()
                 session.commit()
 
     def process_data(self, device_id, prop, value):
@@ -530,7 +530,7 @@ class z2m(BasePlugin):
             converted = str(round(float(value) * 100 / 254))
 
         property_['converted'] = converted
-        property_['updated'] = datetime.datetime.now()
+        property_['updated'] = get_now_to_utc()
 
         new_value = converted if converted else value
 
@@ -538,7 +538,7 @@ class z2m(BasePlugin):
             with session_scope() as session:
                 sql = update(ZigbeeProperties).where(ZigbeeProperties.id == property_['id']).values(value=property_['value'],
                                                                                                     converted=converted,
-                                                                                                    updated=datetime.datetime.now())
+                                                                                                    updated=get_now_to_utc())
                 session.execute(sql)
                 if property_['linked_object']:
                     if property_['linked_method']:
