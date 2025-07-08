@@ -499,7 +499,7 @@ class z2m(BasePlugin):
         elif property_['converter'] == 3:
             # bri = 254
             xy = json.loads(value)
-            if 'hex' not in xy:
+            if 'hex' not in xy and 'x' in xy and 'y' in xy:
                 _x = xy['x']
                 _y = xy['y']
                 _z = 1.0 - _x - _y
@@ -524,6 +524,8 @@ class z2m(BasePlugin):
                 b = format(round(b), '02x')
 
                 converted = r + g + b
+            else:
+                converted = value
         elif property_['converter'] == 4:
             converted = str(int(time.mktime(time.strptime(value, "%Y-%m-%d %H:%M:%S"))))
         elif property_['converter'] == 5:
