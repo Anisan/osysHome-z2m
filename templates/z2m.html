@@ -1,10 +1,10 @@
 {% extends "layouts/module_admin.html" %}
 {% block breadcrumb %}
-<li class="breadcrumb-item"><a href="z2m">Zigbee2MQTT</a></li>
+<li class="breadcrumb-item"><a href="z2m">{{ _('Zigbee2mqtt')}}</a></li>
 {% endblock %}
 {% block module %}
 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
-    Settings
+    {{ _('Settings')}}
 </button>
 
 <div class="table-responsive">
@@ -12,13 +12,13 @@
         <thead>
             <tr>
                 <th></th>
-                <th>Description</th>
-                <th>Title</th>
-                <th>Model</th>
-                <th>Online</th>
-                <th>Battery</th>
-                <th>Data</th>
-                <th>Updated</th>
+                <th>{{ _('Description')}}</th>
+                <th>{{ _('Title')}}</th>
+                <th>{{ _('Model')}}</th>
+                <th>{{ _('Online')}}</th>
+                <th>{{ _('Battery')}}</th>
+                <th>{{ _('Data')}}</th>
+                <th>{{ _('Updated')}}</th>
                 <th></th>
             </tr>
         </thead>
@@ -36,12 +36,12 @@
                 <td class="py-1">
                     {% if device.is_hub!="1" and device.title!="Coordinator" and device.availability!=""%}
                         {%if device.availability=='online'%}
-                        <span class="badge bg-success">Online</span>
+                        <span class="badge bg-success">{{ _('Online')}}</span>
                         {%else%}
-                        <span class="badge bg-danger">Offline</span>
+                        <span class="badge bg-danger">{{ _('Offline')}}</span>
                         {%endif%}
                     {%else%}
-                    n/a
+                    {{ _('n/a')}}
                     {%endif%}
                 </td>
                 <td class="py-1 {{device.battery_warn}}">
@@ -63,8 +63,8 @@
                 </td>
                 <td  class="py-1" width="1%" nowrap>
                     <div>
-                        <a href="?op=edit&id={{device.id}}" class="btn btn-success" title="Edit"><i class="feather icon-edit"></i></a>
-                        <a href="?op=delete&id={{device.id}}" onClick="return confirm('Are you sure? Please confirm.')" class="btn btn-danger" title="Delete"><i class="feather icon-trash"></i></a>
+                        <a href="?op=edit&id={{device.id}}" class="btn btn-success" title="{{ _('Edit')}}"><i class="feather icon-edit"></i></a>
+                        <a href="?op=delete&id={{device.id}}" onClick="return confirm('Are you sure? Please confirm.')" class="btn btn-danger" title="{{ _('Delete')}}"><i class="feather icon-trash"></i></a>
                     </div>
                 </td>
             </tr>
@@ -105,36 +105,36 @@
             <div class="modal-content">
                 <form  method="POST">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">Settings Z2M</h5>
+                    <h5 class="modal-title" id="exampleModalLabel">{{ _('Settings')}}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <!-- Поля формы -->
                     {{ form.hidden_tag() }}
                     <div class="mb-3">
-                        {{ form.host.label(class="form-label") }}
+                        <label class="form-label">{{ _('Host') }}</label>
                         {{ form.host(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                        {{ form.port.label(class="form-label") }}
+                        <label class="form-label">{{ _('Port') }}</label>
                         {{ form.port(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                        {{ form.login.label(class="form-label") }}
+                        <label class="form-label">{{ _('Username') }}</label>
                         {{ form.login(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                        {{ form.password.label(class="form-label") }}
+                        <label class="form-label">{{ _('Password') }}</label>
                         {{ form.password(class="form-control") }}
                     </div>
                     <div class="mb-3">
-                        {{ form.topic.label(class="form-label") }}
+                        <label class="form-label">{{ _('Topics') }}</label>
                         {{ form.topic(class="form-control") }}
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Submit</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Close')}}</button>
+                    <button type="submit" class="btn btn-primary">{{ _('Submit')}}</button>
                 </div>
                 </form>
             </div>

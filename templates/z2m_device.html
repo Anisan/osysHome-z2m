@@ -1,6 +1,6 @@
 {% extends "layouts/module_admin.html" %}
 {% block breadcrumb %}
-<li class="breadcrumb-item"><a href="z2m">Zigbee2mqtt</a></li>
+<li class="breadcrumb-item"><a href="z2m">{{ _('Zigbee2mqtt')}}</a></li>
 {% endblock %}
 {% block module %}
 
@@ -13,11 +13,11 @@
             <span class="input-group-text" id="inputGroup-sizing-sm">
                 <img :src='"https://www.zigbee2mqtt.io/images/devices/"+ device.model+".jpg"' height="30px" :alt="device.type" onError="this.src='/z2m/static/z2m.png'"/>
             </span>
-            <span class="input-group-text" id="inputGroup-sizing-sm">Name</span>
+            <span class="input-group-text" id="inputGroup-sizing-sm">{{ _('Name')}}</span>
             <input type="text" class="form-control" id="name" readonly v-model="device.title">
         </div>
         <div class="input-group mb-3">
-            <span class="input-group-text" id="inputGroup-sizing-sm">Description</span>
+            <span class="input-group-text" id="inputGroup-sizing-sm">{{ _('Description')}}</span>
             <input type="text" class="form-control" id="name" v-model="device.description">
         </div>
         <div class="input-group mb-3">
@@ -25,33 +25,33 @@
             <input type="text" class="form-control" readonly id="name" readonly v-model="device.ieeaddr">
         </div>
         <div class="input-group">
-            <span class="input-group-text" id="inputGroup-sizing-sm">Full path:</span>
+            <span class="input-group-text" id="inputGroup-sizing-sm">{{ _('Full path')}}:</span>
             <input type="text" class="form-control" readonly id="name" readonly v-model="device.full_path">
         </div>
         
         <button class="btn btn-primary mt-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExample" aria-expanded="false" aria-controls="collapseExample">
-            Information
+            {{ _('Information')}}
         </button>
         <div class="collapse" id="collapseExample">
           <div class="card card-body">
             <div class="input-group mb-3">
-                <span class="input-group-text" id="inputGroup-sizing-sm">Manufacturer</span>
+                <span class="input-group-text" id="inputGroup-sizing-sm">{{ _('Manufacturer')}}</span>
                 <input type="text" class="form-control" id="name" readonly v-model="device.manufacturer_id">
             </div>
             <div class="input-group mb-3">
-                <span class="input-group-text" id="inputGroup-sizing-sm">Model</span>
+                <span class="input-group-text" id="inputGroup-sizing-sm">{{ _('Model')}}</span>
                 <input type="text" class="form-control" id="name" readonly v-model="device.model">
             </div>
             <div class="input-group mb-3">
-                <span class="input-group-text" id="inputGroup-sizing-sm">Model name</span>
+                <span class="input-group-text" id="inputGroup-sizing-sm">{{ _('Model name')}}</span>
                 <input type="text" class="form-control" id="name" readonly v-model="device.model_name">
             </div>
             <div class="input-group mb-3">
-                <span class="input-group-text" id="inputGroup-sizing-sm">Model description</span>
+                <span class="input-group-text" id="inputGroup-sizing-sm">{{ _('Model description')}}</span>
                 <input type="text" class="form-control" id="name" readonly v-model="device.model_description">
             </div>
             <div class="input-group">
-                <span class="input-group-text" id="inputGroup-sizing-sm">Vendor</span>
+                <span class="input-group-text" id="inputGroup-sizing-sm">{{ _('Vendor')}}</span>
                 <input type="text" class="form-control" id="name" readonly v-model="device.vendor">
             </div>
           </div>
@@ -59,17 +59,17 @@
         
         <div class="card mt-3">
             <div class="card-header">
-                <h5 class="card-title">Parameters</h5>
+                <h5 class="card-title">{{ _('Parameters')}}</h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive" v-if="device.props.length > 0">
                     <table class="table table-hover table-striped">
                         <thead>
                             <tr>
-                                <th>Title</th>
-                                <th>Value</th>
-                                <th>Link</th>
-                                <th>Updated</th>
+                                <th>{{ _('Title')}}</th>
+                                <th>{{ _('Value')}}</th>
+                                <th>{{ _('Link')}}</th>
+                                <th>{{ _('Updated')}}</th>
                                 <th>&nbsp;</th>
                             </tr>
                         </thead>
@@ -88,23 +88,23 @@
                                 </td>
                                 <td>[[ item.updated ]]</td>
                                 <td>
-                                    <a class="btn btn-success ms-2 ms-auto" @click="editProp(item)" title="Edit"><i class="fas fa-pencil-alt"></i></a>
-                                    <a class="btn btn-danger ms-2 ms-auto" @click="delProp(item.id)" title="Delete"><i class="fas fa-trash"></i></a>
+                                    <a class="btn btn-success ms-2 ms-auto" @click="editProp(item)" title="{{ _('Edit')}}"><i class="fas fa-pencil-alt"></i></a>
+                                    <a class="btn btn-danger ms-2 ms-auto" @click="delProp(item.id)" title="{{ _('Delete')}}"><i class="fas fa-trash"></i></a>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <div v-else >Empty</div>
+                <div v-else >{{ _('Empty')}}</div>
     </div>
         </div>
         <div class="my-2 mt-3">
             <button class="btn btn-success" type="submit">
                 <span v-if="isSaving" class="fas fa-rotate fa-spin me-2"></span>
                 <span v-else class="fas fa-save me-2"></span>
-                Save
+                {{ _('Save')}}
             </button>
-            <a href="z2m" class="btn btn-secondary">Cancel</a>
+            <a href="z2m" class="btn btn-secondary">{{ _('Cancel')}}</a>
         </div>
     </form>
     <p>[[ message ]]</p>
@@ -113,67 +113,67 @@
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="exampleModalLabel">Settings link</h5>
+                        <h5 class="modal-title" id="exampleModalLabel">{{ _('Settings link')}}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div v-if="edit_item" class="modal-body">
                         <div>
                             <label class="form-check-label" for="flexCheckDefault">
-                                Linked object
+                                {{ _('Linked object')}}
                             </label>
-                            <select-with-filter placeholder="Select object" :options="objectOptions" v-model="edit_item.linked_object" @changed="edit_item.linked_property = null"></select-with-filter>
+                            <select-with-filter placeholder="{{ _('Select object')}}" :options="objectOptions" v-model="edit_item.linked_object" @changed="edit_item.linked_property = null"></select-with-filter>
                         </div>
                         <div v-if="edit_item.linked_object && edit_item.linked_object in objects">
                             <label class="form-check-label" for="flexCheckDefault">
-                                Linked property
+                                {{ _('Linked property')}}
                             </label>
-                            <select-with-filter placeholder="Select property" :options="objects[edit_item.linked_object].properties" v-model="edit_item.linked_property"></select-with-filter>
+                            <select-with-filter placeholder="{{ _('Select property')}}" :options="objects[edit_item.linked_object].properties" v-model="edit_item.linked_property"></select-with-filter>
                         </div>
                         <div v-if="edit_item.linked_object && edit_item.linked_object in objects">
                             <label class="form-check-label" for="flexCheckDefault">
-                                Linked method
+                                {{ _('Linked method')}}
                             </label>
                             <select-with-filter placeholder="Select method" :options="objects[edit_item.linked_object].methods" v-model="edit_item.linked_method"></select-with-filter>
                         </div>
                         <div  v-if="edit_item.linked_object">
-                            <label class="form-label me-3">Process type</label>
+                            <label class="form-label me-3">{{ _('Update value')}}</label>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" :value="0" v-model="edit_item.process_type">
-                                <label class="form-check-label">Only new</label>
+                                <label class="form-check-label">{{ _('Only new')}}</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" :value="1" v-model="edit_item.process_type">
-                                <label class="form-check-label">All</label>
+                                <label class="form-check-label">{{ _('All')}}</label>
                             </div>
                         </div>
                         <div v-if="edit_item.linked_object">
                             <input class="form-check-input" type="checkbox" v-model="edit_item.read_only" >
                             <label class="form-check-label">
-                                Readonly
+                                {{ _('Readonly')}}
                             </label>
                         </div>
                         <div v-if="edit_item.linked_object">
-                            <label class="form-label">Round</label>
+                            <label class="form-label">{{ _('Round')}}</label>
                             <input type="number" class="form-control" v-model="edit_item.round">
                         </div>
                         <div v-if="edit_item.linked_object">
-                            <label class="form-label">Minimal period (ms)</label>
+                            <label class="form-label">{{ _('Minimal period (ms)')}}</label>
                             <input type="number" class="form-control" v-model="edit_item.min_period">
                         </div>
                         <div v-if="edit_item.linked_object">
-                            <label class="form-label">Converter</label>
+                            <label class="form-label">{{ _('Converter')}}</label>
                             <select class="form-select" v-model="edit_item.converter">
-                                <option :value="0">Default</option>
-                                <option :value="1">No convert</option>
-                                <option :value="2">online/offline = 1/0</option>
-                                <option :value="3">ColorXY = Hex RGB</option>
-                                <option :value="4">DateTime = timestamp</option>
-                                <option :value="5">Value <=> %</option>
+                                <option :value="0">{{ _('Default')}}</option>
+                                <option :value="1">{{ _('No convert')}}</option>
+                                <option :value="2">{{ _('online/offline = 1/0')}}</option>
+                                <option :value="3">{{ _('ColorXY = Hex RGB')}}</option>
+                                <option :value="4">{{ _('DateTime = timestamp')}}</option>
+                                <option :value="5">{{ _('Value <=> %')}}</option>
                             </select>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Close')}}</button>
                     </div>
                 </div>
             </div>

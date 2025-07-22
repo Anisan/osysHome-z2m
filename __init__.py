@@ -19,7 +19,7 @@ class z2m(BasePlugin):
 
     def __init__(self,app):
         super().__init__(app,__name__)
-        self.title = "Zigbee2Mqtt"
+        self.title = "Zigbee2mqtt"
         self.version = 1
         self.description = """This is a test plugin"""
         self.category = "Devices"

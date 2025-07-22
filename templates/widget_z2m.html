@@ -1,9 +1,9 @@
-<h3><a href="admin/z2m"><img class="me-2" height="30px" src="/z2m/static/z2m.png">Zigbee2mqtt</a></h3>
-<h4>Statistics</h4>
-<h5><span class="badge bg-success">Count devices: {{count}}</span></h5>
+<h3><a href="admin/z2m"><img class="me-2" height="30px" src="/z2m/static/z2m.png">{{ _('Zigbee2mqtt")}}</a></h3>
+<h4>{{ _('Statistics')}}</h4>
+<h5><span class="badge bg-success">{{ _('Count devices')}}: {{count}}</span></h5>
 {%if low_battery > 0%}
-<h5><span class="badge bg-warning text-black">Battery low: {{low_battery}}</span></h5>
+<h5><span class="badge bg-warning text-black">{{ _('Battery low')}}: {{low_battery}}</span></h5>
 {%endif%}
 {%if offline > 0%}
-<h5><span class="badge bg-danger">Offline: {{offline}}</span></h5>
+<h5><span class="badge bg-danger">{{ _('Offline')}}: {{offline}}</span></h5>
 {%endif%}
