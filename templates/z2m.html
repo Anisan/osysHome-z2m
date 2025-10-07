@@ -49,13 +49,21 @@
                 </td>
                 <td class="py-1" id="dev{{device.id}}_data">
                     {%for item in device.data%}
-                        <b>{{item.title}}</b> - {{item.linked_object}}.{{item.linked_property}}{{item.linked_method}}
+                        <div  class="d-flex flex-nowrap">
+                        <b>{{item.title}}</b> - 
+                        {%if item.linked_object and item.linked_property%}
+                        <a href="/admin/Objects?view=object&object={{item.linked_object}}&tab=properties">{{ item.linked_object }}.{{item.linked_property}}</a>
+                        {%endif%}
+                        {%if item.linked_object and item.linked_method%}
+                        <a href="/admin/Objects?view=object&object={{item.linked_object}}&tab=methods">{{ item.linked_object }}.{{item.linked_method}}</a>
+                        {%endif%}
                         {% if item.read_only%}[r]{%endif%}
                         {% if item.process_type%}[a]{%endif%}
                         {% if item.round%}[{{item.round}}]{%endif%}
                         {% if item.min_period%}~{{item.min_period}}~{%endif%}
                          = <b id="z2p_{{item.id}}_value">{{item.value}}</b>
-                         {% if item.converted%}(<span id="z2p_{{item.id}}_converted">{{item.converted}}</span>){%endif%}<br>
+                         {% if item.converted%}(<span id="z2p_{{item.id}}_converted">{{item.converted}}</span>){%endif%}
+                        </div>
                     {%endfor%}
                 </td>
                 <td class="py-1" id="dev{{device.id}}_updated">

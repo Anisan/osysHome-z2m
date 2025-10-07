@@ -79,7 +79,8 @@
                                 <td>[[ item.value ]] <b v-if="item.converted">([[item.converted]])</b></td>
                                 <td>
                                     <div v-if="item.linked_object">
-                                        [[item.linked_object]].[[item.linked_property]][[item.linked_method]]
+                                        <a v-if="item.linked_object && item.linked_property" class="badge bg-secondary" :href="'/admin/Objects?view=object&object='+item.linked_object+'&tab=properties'">[[item.linked_object]].[[item.linked_property]]</a>
+                                        <a v-if="item.linked_object && item.linked_method" class="badge bg-secondary" :href="'/admin/Objects?view=object&object='+item.linked_object+'&tab=methods'">[[item.linked_object]].[[item.linked_method]]</a>
                                         <span v-if="item.read_only" class="ms-1">[r]</span>
                                         <span v-if="item.process_type == 1" class="ms-1">[a]</span>
                                         <span v-if="item.round" class="ms-1">{[[item.round]]}</span>
