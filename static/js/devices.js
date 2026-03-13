@@ -3,6 +3,7 @@ new Vue({
     delimiters: ['[[', ']]'],
     data: {
         devices: [],
+        loadingDevices: true,
         mqttConnected: false,
         mqttConfigured: false,
         settings: { host: '', port: 1883, topic: '', login: '', password: '' },
@@ -21,7 +22,8 @@ new Vue({
             hub: 'Hub',
             battery: 'Battery',
             ac: 'AC',
-            filterPlaceholder: 'Filter by title, description, model...'
+            filterPlaceholder: 'Filter by title, description, model...',
+            loading: 'Loading...'
         }
     },
     computed: {
@@ -65,13 +67,13 @@ new Vue({
         }
     },
     created() {
-        this.devices = window.z2mInitialData.devices || [];
         this.mqttConnected = window.z2mInitialData.mqtt_connected || false;
         this.mqttConfigured = window.z2mInitialData.mqtt_configured || false;
         this.settings = window.z2mInitialData.settings || this.settings;
         this.workerStatus = window.z2mInitialData.worker_status || this.workerStatus;
         this.i18n = window.z2mInitialData.i18n || this.i18n;
         this.connectSocket();
+        this.fetchDevices();
     },
     beforeDestroy() {
         if (this._visibilityHandler) {
@@ -158,11 +160,14 @@ new Vue({
             }
         },
         async fetchDevices() {
+            this.loadingDevices = true;
             try {
                 var r = await axios.get('/z2m/api/devices');
                 this.devices = r.data;
             } catch (e) {
                 console.error('Fetch devices error:', e);
+            } finally {
+                this.loadingDevices = false;
             }
         },
         setSort(column) {

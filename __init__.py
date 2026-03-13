@@ -8,7 +8,7 @@ import threading
 from flask import redirect, render_template, request, jsonify
 from sqlalchemy import delete, update, or_
 import paho.mqtt.client as mqtt
-from app.database import session_scope, row2dict, db, get_now_to_utc
+from app.database import session_scope, row2dict, db, get_now_to_utc, convert_utc_to_local
 from app.extensions import cache
 from app.authentication.handlers import handle_admin_required
 from app.core.main.BasePlugin import BasePlugin
@@ -206,51 +206,7 @@ class z2m(BasePlugin):
                 self.config["password"] = settings.password.data
                 self.saveConfig()
                 self._connect_mqtt()
-        devs = ZigbeeDevices.query.order_by(ZigbeeDevices.title).all()
-        devices = []
-        props = ZigbeeProperties.query.order_by(ZigbeeProperties.title).all()
-
-        for device in devs:
-            vdev = row2dict(device)
-            if device.is_battery:
-                if device.battery_level < 30:
-                    vdev['battery_warn'] = 'text-danger'
-                elif device.battery_level < 360:
-                    vdev['battery_warn'] = 'text-warning'
-                else:
-                    vdev['battery_warn'] = 'text-success'
-
-            # availability: из кэша (MQTT), ZigbeeProperties не хранит value
-            prop_cache = cache.get(f"z2m:prop_{device.id}_availability") or {}
-            vdev["availability"] = prop_cache.get("value")
-
-            # Данные по связанным свойствам: мета из БД, значения из кэша или из ObjectManager
-            linked = []
-            for p in props:
-                if p.device_id == device.id and p.linked_object:
-                    item = row2dict(p)
-                    runtime = cache.get(f"z2m:prop_{device.id}_{p.title}") or {}
-                    value = runtime.get('value')
-                    converted = runtime.get('converted')
-                    updated = runtime.get('updated')
-                    # Если по MQTT ещё не было данных, пробуем взять текущее значение объекта
-                    if value is None and p.linked_object and p.linked_property:
-                        try:
-                            obj_name = f"{p.linked_object}.{p.linked_property}"
-                            value = getProperty(obj_name, 'value')
-                        except Exception:
-                            value = None
-                    item['value'] = value
-                    item['converted'] = converted
-                    item['updated'] = updated
-                    linked.append(item)
-            vdev["data"] = linked
-
-            # updated теперь живёт только в памяти/через WebSocket
-            vdev['updated'] = cache.get(f"z2m_dev_updated:{device.id}")
-
-            devices.append(vdev)
-
+        # Устройства загружаются на странице через API /z2m/api/devices
         client = getattr(self, "_client", None)
         mqtt_connected = (
             getattr(self, "_mqtt_started", False)
@@ -275,7 +231,7 @@ class z2m(BasePlugin):
         }
         content = {
             "form": settings,
-            "devices": devices,
+            "devices": [],
             "settings": settings_dict,
             "mqtt_connected": mqtt_connected,
             "mqtt_configured": mqtt_configured,
@@ -301,7 +257,7 @@ class z2m(BasePlugin):
                         runtime = cache.get(f"z2m:prop_{device_id}_{prop.title}") or {}
                         value = runtime.get('value')
                         converted = runtime.get('converted')
-                        updated = runtime.get('updated')
+                        updated = convert_utc_to_local(runtime.get('updated'))
 
                         # если в кэше ещё нет значения, а свойство связано с объектом — пробуем взять из ObjectManager
                         if value is None and prop.linked_object and prop.linked_property:
@@ -382,11 +338,11 @@ class z2m(BasePlugin):
                         runtime = cache.get(f"z2m:prop_{device.id}_{p.title}") or {}
                         item['value'] = runtime.get('value')
                         item['converted'] = runtime.get('converted')
-                        item['updated'] = runtime.get('updated')
+                        item['updated'] = convert_utc_to_local(runtime.get('updated'))
                         linked.append(item)
                 vdev["data"] = linked
 
-                vdev['updated'] = cache.get(f"z2m_dev_updated:{device.id}")
+                vdev['updated'] = convert_utc_to_local(cache.get(f"z2m_dev_updated:{device.id}"))
                 devices.append(vdev)
             return jsonify(devices)
 

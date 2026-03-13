@@ -37,8 +37,8 @@
         <button type="button" class="btn btn-primary d-flex align-items-center" @click="openSettings()">
             <i class="fas fa-cog me-2"></i> {{ _('Settings')}}
         </button>
-        <button type="button" class="btn btn-outline-secondary d-flex align-items-center" @click="fetchDevices()">
-            <i class="fas fa-sync-alt me-2"></i> {{ _('Refresh')}}
+        <button type="button" class="btn btn-outline-secondary d-flex align-items-center" @click="fetchDevices()" :disabled="loadingDevices">
+            <i class="fas me-2" :class="loadingDevices ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i> {{ _('Refresh')}}
         </button>
         <span class="text-nowrap d-flex align-items-center">
             <i class="fas fa-plug me-1 text-muted"></i> {{ _('MQTT') }}:
@@ -82,6 +82,11 @@
                 </tr>
             </thead>
             <tbody>
+                <tr v-if="loadingDevices && devices.length === 0">
+                    <td colspan="9" class="text-center py-4 text-muted">
+                        <i class="fas fa-spinner fa-spin me-2"></i>[[ i18n.loading ]]
+                    </td>
+                </tr>
                 <tr v-for="device in sortedDevices" :key="device.id">
                     <td class="py-1" style="vertical-align:middle">
                         <a v-if="device.model" :href="'https://www.zigbee2mqtt.io/devices/' + device.model + '.html'" target="_blank">
@@ -195,7 +200,8 @@ window.z2mInitialData = {
         filterPlaceholder: {{ _('Filter by title, description, model...') | tojson }},
         hub: {{ _('Hub') | tojson }},
         battery: {{ _('Battery') | tojson }},
-        ac: {{ _('AC') | tojson }}
+        ac: {{ _('AC') | tojson }},
+        loading: {{ _('Loading...') | tojson }}
     }
 };
 </script>

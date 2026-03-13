@@ -28,6 +28,8 @@
   "Hub": "Концентратор",
   "Battery": "Батарея",
   "AC": "Сеть",
+  "Loading...": "Загрузка...",
+  "Refresh": "Обновить",
   "n/a": "н/д",
   "online/offline = 1/0": "online/offline = 1/0"
 }

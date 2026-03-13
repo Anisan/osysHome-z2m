@@ -28,6 +28,8 @@
   "Hub": "Hub",
   "Battery": "Battery",
   "AC": "AC",
+  "Loading...": "Loading...",
+  "Refresh": "Refresh",
   "n/a": "n/a",
   "online/offline = 1/0": "online/offline = 1/0"
 }
