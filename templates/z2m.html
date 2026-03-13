@@ -37,6 +37,9 @@
         <button type="button" class="btn btn-primary d-flex align-items-center" @click="openSettings()">
             <i class="fas fa-cog me-2"></i> {{ _('Settings')}}
         </button>
+        <button type="button" class="btn btn-outline-secondary d-flex align-items-center" @click="fetchDevices()">
+            <i class="fas fa-sync-alt me-2"></i> {{ _('Refresh')}}
+        </button>
         <span class="text-nowrap d-flex align-items-center">
             <i class="fas fa-plug me-1 text-muted"></i> {{ _('MQTT') }}:
             <span v-if="mqttConnected" class="badge bg-success ms-1">[[ i18n.connected ]]</span>
@@ -71,8 +74,8 @@
                     <th class="cursor-pointer" @click="setSort('description')">{{ _('Description')}} <span>[[ sortIcon('description') ]]</span></th>
                     <th class="cursor-pointer" @click="setSort('title')">{{ _('Title')}} <span>[[ sortIcon('title') ]]</span></th>
                     <th class="cursor-pointer" @click="setSort('model')">{{ _('Model')}} <span>[[ sortIcon('model') ]]</span></th>
+                    <th class="cursor-pointer" @click="setSort('type')">{{ _('Type')}} / {{ _('Battery')}} <span>[[ sortIcon('type') ]]</span></th>
                     <th class="cursor-pointer" @click="setSort('availability')">{{ _('Online')}} <span>[[ sortIcon('availability') ]]</span></th>
-                    <th class="cursor-pointer" @click="setSort('battery')">{{ _('Battery')}} <span>[[ sortIcon('battery') ]]</span></th>
                     <th>{{ _('Data')}}</th>
                     <th class="cursor-pointer" @click="setSort('updated')">{{ _('Updated')}} <span>[[ sortIcon('updated') ]]</span></th>
                     <th></th>
@@ -90,14 +93,28 @@
                     <td class="py-1">[[ device.title ]]</td>
                     <td class="py-1">[[ device.model_name || device.model || '' ]]</td>
                     <td class="py-1">
+                        <template v-if="device.is_hub == 1 || device.title == 'Coordinator'">
+                            <span class="badge bg-info" title="Hub / Coordinator">
+                                <i class="fas fa-microchip me-1"></i>[[ i18n.hub ]]
+                            </span>
+                        </template>
+                        <template v-else-if="device.is_battery">
+                            <span class="badge d-inline-flex align-items-center" :class="getBatteryBadgeClass(device)" title="Battery">
+                                <i class="fas me-1" :class="getBatteryIcon(device)"></i>[[ device.battery_level ]][[ (device.battery_level != null && device.battery_level <= 100) ? '%' : '' ]]
+                            </span>
+                        </template>
+                        <template v-else>
+                            <span class="badge bg-secondary opacity-75" title="Mains powered">
+                                <i class="fas fa-plug me-1"></i>[[ i18n.ac ]]
+                            </span>
+                        </template>
+                    </td>
+                    <td class="py-1">
                         <span v-if="device.is_hub != 1 && device.title != 'Coordinator' && device.availability">
-                            <span v-if="device.availability == 'online'" class="badge bg-success">[[ i18n.online ]]</span>
+                            <span v-if="(device.availability || '').toLowerCase() === 'online'" class="badge bg-success">[[ i18n.online ]]</span>
                             <span v-else class="badge bg-danger">[[ i18n.offline ]]</span>
                         </span>
                         <span v-else>[[ i18n.n_a ]]</span>
-                    </td>
-                    <td class="py-1" :class="device.battery_warn">
-                        <span v-if="device.is_battery">[[ device.battery_level ]]</span>
                     </td>
                     <td class="py-1">
                         <div v-for="item in (device.data || [])" :key="item.id" class="d-flex flex-nowrap">
@@ -175,7 +192,10 @@ window.z2mInitialData = {
         online: {{ _('Online') | tojson }},
         offline: {{ _('Offline') | tojson }},
         n_a: {{ _('n/a') | tojson }},
-        filterPlaceholder: {{ _('Filter by title, description, model...') | tojson }}
+        filterPlaceholder: {{ _('Filter by title, description, model...') | tojson }},
+        hub: {{ _('Hub') | tojson }},
+        battery: {{ _('Battery') | tojson }},
+        ac: {{ _('AC') | tojson }}
     }
 };
 </script>

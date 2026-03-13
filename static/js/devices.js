@@ -18,6 +18,9 @@ new Vue({
             online: 'Online',
             offline: 'Offline',
             n_a: 'n/a',
+            hub: 'Hub',
+            battery: 'Battery',
+            ac: 'AC',
             filterPlaceholder: 'Filter by title, description, model...'
         }
     },
@@ -29,10 +32,10 @@ new Vue({
                 var title = (dev.title || '').toLowerCase();
                 var description = (dev.description || '').toLowerCase();
                 var model = ((dev.model_name || dev.model || '') + '').toLowerCase();
-                var availability = dev.availability || 'n/a';
-                var matchSearch = !search || title.indexOf(search) >= 0 ||
-                    description.indexOf(search) >= 0 || model.indexOf(search) >= 0;
-                var matchStatus = !statusFilter || availability === statusFilter;
+                var availability = (dev.availability || 'n/a').toLowerCase();
+            var matchSearch = !search || title.indexOf(search) >= 0 ||
+                description.indexOf(search) >= 0 || model.indexOf(search) >= 0;
+            var matchStatus = !statusFilter || availability === statusFilter;
                 return matchSearch && matchStatus;
             });
         },
@@ -45,8 +48,13 @@ new Vue({
                 if (col === 'description') { va = (a.description || ''); vb = (b.description || ''); }
                 else if (col === 'title') { va = (a.title || ''); vb = (b.title || ''); }
                 else if (col === 'model') { va = (a.model_name || a.model || ''); vb = (b.model_name || b.model || ''); }
+                else if (col === 'type') {
+                    var ta = (a.is_hub === 1 ? 2 : (a.is_battery ? 1 : 0));
+                    var tb = (b.is_hub === 1 ? 2 : (b.is_battery ? 1 : 0));
+                    if (ta !== tb) { va = ta; vb = tb; }
+                    else { va = (a.battery_level != null ? a.battery_level : -1); vb = (b.battery_level != null ? b.battery_level : -1); }
+                }
                 else if (col === 'availability') { va = (a.availability || ''); vb = (b.availability || ''); }
-                else if (col === 'battery') { va = a.battery_level != null ? a.battery_level : -1; vb = b.battery_level != null ? b.battery_level : -1; }
                 else if (col === 'updated') { va = a.updated || ''; vb = b.updated || ''; }
                 else return 0;
                 if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
@@ -64,14 +72,10 @@ new Vue({
         this.workerStatus = window.z2mInitialData.worker_status || this.workerStatus;
         this.i18n = window.z2mInitialData.i18n || this.i18n;
         this.connectSocket();
-        this.startWorkerMonitoring();
     },
     beforeDestroy() {
         if (this._visibilityHandler) {
             document.removeEventListener('visibilitychange', this._visibilityHandler);
-        }
-        if (this._workerMonitorInterval) {
-            clearInterval(this._workerMonitorInterval);
         }
         if (typeof socket !== 'undefined') {
             socket.emit('unsubscribeData', ['z2m']);
@@ -94,6 +98,9 @@ new Vue({
                     this.mqttConnected = data.data.connected;
                     this.mqttConfigured = data.data.configured !== false;
                 }
+                if (data.operation === 'workerStatus') {
+                    this.workerStatus = data.data || this.workerStatus;
+                }
                 if (data.operation === 'updateProperty') {
                     var prop = data.data || {};
                     var targetDeviceId = prop.device_id;
@@ -102,6 +109,10 @@ new Vue({
                         var dev = this.devices[i];
                         if (targetDeviceId && dev.id !== targetDeviceId) {
                             continue;
+                        }
+                        if (prop.title === 'availability') {
+                            this.$set(dev, 'availability', prop.value);
+                            return;
                         }
                         if (!dev.data) dev.data = [];
                         for (var j = 0; j < dev.data.length; j++) {
@@ -124,6 +135,9 @@ new Vue({
                     for (var k = 0; k < this.devices.length; k++) {
                         if (this.devices[k].id === d.id) {
                             this.$set(this.devices[k], 'updated', d.updated);
+                            if (d.availability !== undefined) {
+                                this.$set(this.devices[k], 'availability', d.availability);
+                            }
                             return;
                         }
                     }
@@ -171,17 +185,23 @@ new Vue({
             if (percent >= 50) return 'bg-warning';
             return 'bg-secondary';
         },
-        startWorkerMonitoring() {
-            var vm = this;
-            this._workerMonitorInterval = setInterval(async function() {
-                if (document.hidden) return;
-                try {
-                    var response = await axios.get('/z2m/api/worker_status');
-                    vm.workerStatus = response.data;
-                } catch (e) {
-                    console.error('Worker status fetch error:', e);
-                }
-            }, 2000);
+        getBatteryBadgeClass(device) {
+            var l = device.battery_level;
+            if (l == null) return 'bg-secondary';
+            var pct = (l <= 100) ? l : Math.round(l / 254 * 100);
+            if (pct >= 60) return 'bg-success';
+            if (pct >= 30) return 'bg-warning text-dark';
+            return 'bg-danger';
+        },
+        getBatteryIcon(device) {
+            var l = device.battery_level;
+            if (l == null) return 'fa-battery-empty';
+            var pct = (l <= 100) ? l : Math.round(l / 254 * 100);
+            if (pct <= 10) return 'fa-battery-empty';
+            if (pct <= 25) return 'fa-battery-quarter';
+            if (pct <= 50) return 'fa-battery-half';
+            if (pct <= 75) return 'fa-battery-three-quarters';
+            return 'fa-battery-full';
         },
         deleteDevice(device) {
             if (confirm('Are you sure? Please confirm.')) {

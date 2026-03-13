@@ -24,6 +24,10 @@
   "Vendor": "Vendor",
   "Zigbee2mqtt": "Zigbee2mqtt",
   "Not configured": "Not configured",
+  "Type": "Type",
+  "Hub": "Hub",
+  "Battery": "Battery",
+  "AC": "AC",
   "n/a": "n/a",
   "online/offline = 1/0": "online/offline = 1/0"
 }

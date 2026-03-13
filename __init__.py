@@ -32,6 +32,7 @@ class z2m(BasePlugin):
         self._msg_queue = queue.Queue(maxsize=queue_max_size)
         self._worker_thread = None
         self._worker_stop_event = threading.Event()
+        self._last_worker_status_ts = 0
 
     def _is_connection_configured(self):
         """Проверка наличия обязательных параметров для подключения к MQTT"""
@@ -109,6 +110,7 @@ class z2m(BasePlugin):
         self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True, name="z2m-worker")
         self._worker_thread.start()
         self.logger.info("Worker thread started")
+        self._notify_worker_status(force=True)
     
     def _worker_loop(self):
         """Основной цикл воркера для обработки очереди MQTT-сообщений"""
@@ -125,6 +127,7 @@ class z2m(BasePlugin):
                     self.logger.error("Error processing message: %s", ex, exc_info=True)
                 finally:
                     self._msg_queue.task_done()
+                    self._notify_worker_status()
                     
             except queue.Empty:
                 continue
@@ -149,6 +152,28 @@ class z2m(BasePlugin):
                 self.logger.info("Worker thread stopped")
         except Exception as ex:
             self.logger.error("Error stopping worker: %s", ex)
+        finally:
+            self._notify_worker_status(force=True)
+
+    def _notify_worker_status(self, force: bool = False):
+        """Отправка статуса воркера через WebSocket"""
+        try:
+            now = time.time()
+            if not force:
+                # Ограничиваем частоту отправки до 1 раза в секунду
+                if now - getattr(self, "_last_worker_status_ts", 0) < 1.0:
+                    return
+            self._last_worker_status_ts = now
+
+            status = {
+                "running": self._worker_thread is not None and self._worker_thread.is_alive(),
+                "queue_size": self._msg_queue.qsize() if hasattr(self, "_msg_queue") else 0,
+                "queue_max": self._msg_queue.maxsize if hasattr(self, "_msg_queue") else 0,
+            }
+            self.sendDataToWebsocket("workerStatus", status)
+        except Exception as ex:
+            # Не мешаем основному потоку работы при ошибке отправки статуса
+            self.logger.debug("Worker status notify error: %s", ex)
 
     def admin(self, request):
         op = request.args.get('op', '')
@@ -195,14 +220,9 @@ class z2m(BasePlugin):
                 else:
                     vdev['battery_warn'] = 'text-success'
 
-            # availability: сначала из кэша, при его отсутствии — из БД (последнее известное значение)
+            # availability: из кэша (MQTT), ZigbeeProperties не хранит value
             prop_cache = cache.get(f"z2m:prop_{device.id}_availability") or {}
-            availability = prop_cache.get('value')
-            if availability is None:
-                av_prop = next((p for p in props if p.device_id == device.id and p.title == 'availability'), None)
-                if av_prop is not None:
-                    availability = getattr(av_prop, 'value', None)
-            vdev['availability'] = availability
+            vdev["availability"] = prop_cache.get("value")
 
             # Данные по связанным свойствам: мета из БД, значения из кэша или из ObjectManager
             linked = []
@@ -697,7 +717,13 @@ class z2m(BasePlugin):
                         updatePropertyThread(se["linked_object"] + "." + se["linked_property"], se["new_value"], self.name)
                 if se.get("property_"):
                     self.sendDataToWebsocket("updateProperty", se["property_"])
-            self.sendDataToWebsocket("updateDevice", {"id": device_id, 'updated': now_utc})
+            update_payload = {"id": device_id, "updated": now_utc}
+            if "/availability" in path:
+                prop_cache = cache.get(f"z2m:prop_{device_id}_availability") or {}
+                av = prop_cache.get("value")
+                if av is not None:
+                    update_payload["availability"] = av
+            self.sendDataToWebsocket("updateDevice", update_payload)
 
     def process_list_of_devices(self, path, data):
         with session_scope() as session:

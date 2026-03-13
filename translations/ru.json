@@ -24,6 +24,10 @@
   "Vendor": "Производитель",
   "Zigbee2mqtt": "Zigbee2mqtt",
   "Not configured": "Не настроено",
+  "Type": "Тип",
+  "Hub": "Концентратор",
+  "Battery": "Батарея",
+  "AC": "Сеть",
   "n/a": "н/д",
   "online/offline = 1/0": "online/offline = 1/0"
 }
