@@ -3,9 +3,20 @@
 <li class="breadcrumb-item"><a href="z2m">{{ _('Zigbee2mqtt')}}</a></li>
 {% endblock %}
 {% block module %}
-<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
-    {{ _('Settings')}}
-</button>
+<div class="d-flex align-items-center gap-2 mb-3">
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
+        {{ _('Settings')}}
+    </button>
+    <span class="text-nowrap" id="z2m_status_container"
+          data-connected="{{ _('Connected') }}"
+          data-disconnected="{{ _('Disconnected') }}"
+          data-not-configured="{{ _('Not configured') }}">
+        {{ _('MQTT') }}:
+        <span id="z2m_mqtt_status" class="badge {% if mqtt_connected %}bg-success{% elif mqtt_configured %}bg-danger{% else %}bg-secondary{% endif %}">
+            {% if mqtt_connected %}{{ _('Connected') }}{% elif mqtt_configured %}{{ _('Disconnected') }}{% else %}{{ _('Not configured') }}{% endif %}
+        </span>
+    </span>
+</div>
 
 <div class="table-responsive">
     <table class="table table-hover table-striped">
@@ -87,7 +98,24 @@
             socket.emit('subscribeData',["z2m"]);
         });
         socket.on('z2m', function(data) {
-            //console.log(data)
+            if (data.operation == "connectionStatus") {
+                var el = document.getElementById('z2m_mqtt_status');
+                var container = document.getElementById('z2m_status_container');
+                if (el && container) {
+                    var connected = data.data.connected;
+                    var configured = data.data.configured !== false;
+                    if (connected) {
+                        el.className = 'badge bg-success';
+                        el.textContent = container.dataset.connected;
+                    } else if (configured) {
+                        el.className = 'badge bg-danger';
+                        el.textContent = container.dataset.disconnected;
+                    } else {
+                        el.className = 'badge bg-secondary';
+                        el.textContent = container.dataset.notConfigured;
+                    }
+                }
+            }
             if (data.operation == "updateProperty"){
                 id = "z2p_"+data.data['id']+"_value"
                 if (document.getElementById(id))

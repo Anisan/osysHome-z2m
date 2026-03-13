@@ -1,4 +1,6 @@
 {
+  "Connected": "Connected",
+  "Disconnected": "Disconnected",
   "Battery low": "Battery low",
   "ColorXY = Hex RGB": "ColorXY = Hex RGB",
   "Converter": "Converter",
@@ -7,9 +9,9 @@
   "DateTime = timestamp": "DateTime = timestamp",
   "Default": "Default",
   "Full path": "Full path",
-  "Information": "Information",
   "Minimal period (ms)": "Minimal period (ms)",
   "Model description": "Model description",
+  "MQTT": "MQTT",
   "Model name": "Model name",
   "No convert": "No convert",
   "Only new": "Only new",
@@ -19,6 +21,7 @@
   "Value <=> %": "Value <=> %",
   "Vendor": "Vendor",
   "Zigbee2mqtt": "Zigbee2mqtt",
+  "Not configured": "Not configured",
   "n/a": "n/a",
   "online/offline = 1/0": "online/offline = 1/0"
 }

@@ -1,4 +1,6 @@
 {
+  "Connected": "Подключено",
+  "Disconnected": "Отключено",
   "Battery low": "Низкий заряд батареи",
   "ColorXY = Hex RGB": "ColorXY = Hex RGB",
   "Converter": "Конвертер",
@@ -7,9 +9,9 @@
   "DateTime = timestamp": "datetime = timestamp",
   "Default": "По умолчанию",
   "Full path": "Полный путь",
-  "Information": "Информация",
   "Minimal period (ms)": "Минимальный период (мс)",
   "Model description": "Описание модели",
+  "MQTT": "MQTT",
   "Model name": "Название модели",
   "No convert": "Без конвертации",
   "Only new": "Только новые",
@@ -19,6 +21,7 @@
   "Value <=> %": "value <=> %",
   "Vendor": "Производитель",
   "Zigbee2mqtt": "Zigbee2mqtt",
+  "Not configured": "Не настроено",
   "n/a": "н/д",
   "online/offline = 1/0": "online/offline = 1/0"
 }

@@ -25,21 +25,61 @@ class z2m(BasePlugin):
         self.category = "Devices"
         self.actions = ['cycle','search', "widget"]
 
-    def initialization(self):
-        # Создаем клиент MQTT
-        self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
-        # Назначаем функции обратного вызова
-        self._client.on_connect = self.on_connect
-        self._client.on_disconnect = self.on_disconnect
-        self._client.on_message = self.on_message
+    def _is_connection_configured(self):
+        """Проверка наличия обязательных параметров для подключения к MQTT"""
+        host = (self.config.get("host") or "").strip()
+        topic = (self.config.get("topic") or "").strip()
+        return bool(host and topic)
 
-        if "host" in self.config:
-            if self.config.get("login",'') != '' and self.config.get("password",'') != '':
-                self._client.username_pw_set(self.config["login"], self.config["password"])
-            # Подключаемся к брокеру MQTT
-            self._client.connect(self.config.get("host",""), 1883, 0)
-            # Запускаем цикл обработки сообщений в отдельном потоке
+    def _disconnect_mqtt(self):
+        """Отключение от брокера MQTT"""
+        if getattr(self, "_mqtt_started", False) and getattr(self, "_client", None):
+            try:
+                self._client.loop_stop()
+                self._client.disconnect()
+            except Exception as e:
+                self.logger.warning("MQTT disconnect error: %s", e)
+            self._mqtt_started = False
+            self.logger.info("MQTT disconnected")
+
+    def _send_connection_status(self, connected: bool, configured: bool = True):
+        """Отправка статуса подключения через WebSocket"""
+        self.sendDataToWebsocket("connectionStatus", {
+            "connected": connected,
+            "configured": configured,
+        })
+
+    def _connect_mqtt(self):
+        """Подключение к брокеру MQTT с текущими настройками"""
+        self._disconnect_mqtt()
+        if not self._is_connection_configured():
+            self.logger.info("MQTT: параметры подключения не заданы (host, topic)")
+            self._send_connection_status(False, False)
+            return
+        try:
+            self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+            self._client.on_connect = self.on_connect
+            self._client.on_disconnect = self.on_disconnect
+            self._client.on_message = self.on_message
+            host = self.config.get("host", "").strip()
+            port = int(self.config.get("port", 1883))
+            login = (self.config.get("login") or "").strip()
+            password = (self.config.get("password") or "").strip()
+            if login and password:
+                self._client.username_pw_set(login, password)
+            self._client.connect(host, port, 60)
             self._client.loop_start()
+            self._mqtt_started = True
+            self.logger.info("MQTT: подключение к %s:%s", host, port)
+        except Exception as e:
+            self.logger.error("MQTT connect error: %s", e)
+            addNotify("MQTT connect error", str(e), CategoryNotify.Error, self.name)
+            self._send_connection_status(False, True)
+
+    def initialization(self):
+        self._client = None
+        self._mqtt_started = False
+        self._connect_mqtt()
 
     def admin(self, request):
         op = request.args.get('op', '')
@@ -71,6 +111,7 @@ class z2m(BasePlugin):
                 self.config["login"] = settings.login.data
                 self.config["password"] = settings.password.data
                 self.saveConfig()
+                self._connect_mqtt()
         devs = ZigbeeDevices.query.order_by(ZigbeeDevices.title).all()
         devices = []
         props = ZigbeeProperties.query.order_by(ZigbeeProperties.title).all()
@@ -92,9 +133,18 @@ class z2m(BasePlugin):
 
             devices.append(vdev)
 
+        client = getattr(self, "_client", None)
+        mqtt_connected = (
+            getattr(self, "_mqtt_started", False)
+            and client
+            and client.is_connected()
+        )
+        mqtt_configured = self._is_connection_configured()
         content = {
             "form": settings,
             "devices": devices,
+            "mqtt_connected": mqtt_connected,
+            "mqtt_configured": mqtt_configured,
         }
         return self.render('z2m.html', content)
 
@@ -174,16 +224,20 @@ class z2m(BasePlugin):
 
     def cyclic_task(self):
         if self.event.is_set():
-            # Останавливаем цикл обработки сообщений
-            self._client.loop_stop()
-            # Отключаемся от брокера MQTT
-            self._client.disconnect()
+            self._disconnect_mqtt()
         else:
             self.event.wait(1.0)
 
     def mqttPublish(self, topic, value, qos=0, retain=0):
+        client = getattr(self, "_client", None)
+        if not client or not getattr(self, "_mqtt_started", False):
+            self.logger.debug("MQTT: не подключен, пропуск publish %s", topic)
+            return
+        if not client.is_connected():
+            self.logger.debug("MQTT: соединение потеряно, пропуск publish %s", topic)
+            return
         self.logger.info("⬅️ Publish: " + topic + " " + value)
-        self._client.publish(topic, str(value), qos=qos, retain=retain)
+        client.publish(topic, str(value), qos=qos, retain=retain)
 
     def changeLinkedProperty(self, obj, prop, val):
         with session_scope() as session:
@@ -270,16 +324,18 @@ class z2m(BasePlugin):
                 self.mqttPublish(topic, payload)
 
     # Функция обратного вызова для подключения к брокеру MQTT
-    def on_connect(self,client, userdata, flags, rc):
-        self.logger.info('Connected with result code %s',rc)
-        # Подписываемся на топик
-        if self.config["topic"]:
-            topics = self.config["topic"].split(',')
+    def on_connect(self, client, userdata, flags, rc):
+        self.logger.info('Connected with result code %s', rc)
+        self._send_connection_status(rc == 0, True)
+        topic_str = self.config.get("topic", "").strip()
+        if topic_str:
+            topics = topic_str.split(',')
             for topic in topics:
                 self.logger.info("🔹 Subscribe: " + topic)
                 self._client.subscribe(topic)
 
     def on_disconnect(self, client, userdata, rc):
+        self._send_connection_status(False, True)
         addNotify("Disconnect MQTT",str(rc),CategoryNotify.Error,self.name)
         if rc == 0:
             self.logger.info("Disconnected gracefully.")
@@ -305,7 +361,7 @@ class z2m(BasePlugin):
             return
 
         if 'bridge/' not in msg.topic:
-            topics = self.config['topic'].split(',')
+            topics = (self.config.get('topic') or '').split(',')
             for t in topics:
                 t = t.lower()
                 t = re.sub(r'#$', '', t)
