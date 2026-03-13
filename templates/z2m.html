@@ -3,178 +3,187 @@
 <li class="breadcrumb-item"><a href="z2m">{{ _('Zigbee2mqtt')}}</a></li>
 {% endblock %}
 {% block module %}
-<div class="d-flex align-items-center gap-2 mb-3">
-    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exampleModal">
-        {{ _('Settings')}}
-    </button>
-    <span class="text-nowrap" id="z2m_status_container"
-          data-connected="{{ _('Connected') }}"
-          data-disconnected="{{ _('Disconnected') }}"
-          data-not-configured="{{ _('Not configured') }}">
-        {{ _('MQTT') }}:
-        <span id="z2m_mqtt_status" class="badge {% if mqtt_connected %}bg-success{% elif mqtt_configured %}bg-danger{% else %}bg-secondary{% endif %}">
-            {% if mqtt_connected %}{{ _('Connected') }}{% elif mqtt_configured %}{{ _('Disconnected') }}{% else %}{{ _('Not configured') }}{% endif %}
+<style>
+  /* Скрывает контент до инициализации Vue и показывает спиннер */
+  [v-cloak] {
+    position: relative;
+    min-height: 120px;
+  }
+  [v-cloak] > * {
+    display: none !important;
+  }
+  [v-cloak]::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: block;
+    z-index: 1000;
+  }
+  @keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+</style>
+<div class="container-fluid p-0" id="z2m_devices" v-cloak>
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <button type="button" class="btn btn-primary d-flex align-items-center" @click="openSettings()">
+            <i class="fas fa-cog me-2"></i> {{ _('Settings')}}
+        </button>
+        <span class="text-nowrap d-flex align-items-center">
+            <i class="fas fa-plug me-1 text-muted"></i> {{ _('MQTT') }}:
+            <span v-if="mqttConnected" class="badge bg-success ms-1">[[ i18n.connected ]]</span>
+            <span v-else-if="mqttConfigured" class="badge bg-danger ms-1">[[ i18n.disconnected ]]</span>
+            <span v-else class="badge bg-secondary ms-1">[[ i18n.notConfigured ]]</span>
         </span>
-    </span>
-</div>
+        <div class="input-group input-group-sm" style="max-width: 260px;">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" v-model="filterSearch" class="form-control" :placeholder="i18n.filterPlaceholder">
+        </div>
+        <div class="input-group input-group-sm" style="max-width: 150px;">
+            <span class="input-group-text"><i class="fas fa-filter"></i></span>
+            <select v-model="filterStatus" class="form-select">
+            <option value="">{{ _('All') }}</option>
+            <option value="online">{{ _('Online') }}</option>
+            <option value="offline">{{ _('Offline') }}</option>
+            </select>
+        </div>
+        <span class="text-nowrap ms-auto">
+            <i class="fas fa-tasks me-1 text-muted"></i> {{ _('Worker') }}:
+            <span v-if="workerStatus.running" class="badge bg-success">Running</span>
+            <span v-else class="badge bg-danger">Stopped</span>
+            <span class="badge" :class="getQueueBadgeClass()">[[ workerStatus.queue_size ]]/[[ workerStatus.queue_max ]]</span>
+        </span>
+    </div>
 
-<div class="table-responsive">
-    <table class="table table-hover table-striped">
-        <thead>
-            <tr>
-                <th></th>
-                <th>{{ _('Description')}}</th>
-                <th>{{ _('Title')}}</th>
-                <th>{{ _('Model')}}</th>
-                <th>{{ _('Online')}}</th>
-                <th>{{ _('Battery')}}</th>
-                <th>{{ _('Data')}}</th>
-                <th>{{ _('Updated')}}</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for device in devices %}
-            <tr>
-                <td  class="py-1" style="vertical-align:middle">
-                    {% if device.model!="" %}<a href="https://www.zigbee2mqtt.io/devices/{{device.model}}.html" target="_blank">{%endif%}
-                     <img src="https://www.zigbee2mqtt.io/images/devices/{{device.model}}.jpg" height="30px"  onError="this.src='/z2m/static/z2m.png'">
-                     </a>
-                   </td>
-                <td class="py-1">{{ device.description }}</td>
-                <td class="py-1">{{ device.title }}</td>
-                <td class="py-1">{{ device.model_name }}</td>
-                <td class="py-1">
-                    {% if device.is_hub!="1" and device.title!="Coordinator" and device.availability!=""%}
-                        {%if device.availability=='online'%}
-                        <span class="badge bg-success">{{ _('Online')}}</span>
-                        {%else%}
-                        <span class="badge bg-danger">{{ _('Offline')}}</span>
-                        {%endif%}
-                    {%else%}
-                    {{ _('n/a')}}
-                    {%endif%}
-                </td>
-                <td class="py-1 {{device.battery_warn}}">
-                    {%if device.is_battery %}{{device.battery_level}}{%endif%}
-                </td>
-                <td class="py-1" id="dev{{device.id}}_data">
-                    {%for item in device.data%}
-                        <div  class="d-flex flex-nowrap">
-                        <b>{{item.title}}</b> - 
-                        {%if item.linked_object and item.linked_property%}
-                        <a href="/admin/Objects?view=object&object={{item.linked_object}}&tab=properties">{{ item.linked_object }}.{{item.linked_property}}</a>
-                        {%endif%}
-                        {%if item.linked_object and item.linked_method%}
-                        <a href="/admin/Objects?view=object&object={{item.linked_object}}&tab=methods">{{ item.linked_object }}.{{item.linked_method}}</a>
-                        {%endif%}
-                        {% if item.read_only%}[r]{%endif%}
-                        {% if item.process_type%}[a]{%endif%}
-                        {% if item.round%}[{{item.round}}]{%endif%}
-                        {% if item.min_period%}~{{item.min_period}}~{%endif%}
-                         = <b id="z2p_{{item.id}}_value">{{item.value}}</b>
-                         {% if item.converted%}(<span id="z2p_{{item.id}}_converted">{{item.converted}}</span>){%endif%}
+    <div class="table-responsive">
+        <table class="table table-hover table-striped">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th class="cursor-pointer" @click="setSort('description')">{{ _('Description')}} <span>[[ sortIcon('description') ]]</span></th>
+                    <th class="cursor-pointer" @click="setSort('title')">{{ _('Title')}} <span>[[ sortIcon('title') ]]</span></th>
+                    <th class="cursor-pointer" @click="setSort('model')">{{ _('Model')}} <span>[[ sortIcon('model') ]]</span></th>
+                    <th class="cursor-pointer" @click="setSort('availability')">{{ _('Online')}} <span>[[ sortIcon('availability') ]]</span></th>
+                    <th class="cursor-pointer" @click="setSort('battery')">{{ _('Battery')}} <span>[[ sortIcon('battery') ]]</span></th>
+                    <th>{{ _('Data')}}</th>
+                    <th class="cursor-pointer" @click="setSort('updated')">{{ _('Updated')}} <span>[[ sortIcon('updated') ]]</span></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="device in sortedDevices" :key="device.id">
+                    <td class="py-1" style="vertical-align:middle">
+                        <a v-if="device.model" :href="'https://www.zigbee2mqtt.io/devices/' + device.model + '.html'" target="_blank">
+                            <img :src="'https://www.zigbee2mqtt.io/images/devices/' + (device.model || '') + '.jpg'" height="30px" onerror="this.src='/z2m/static/z2m.png'" :alt="device.model">
+                        </a>
+                        <img v-else src="/z2m/static/z2m.png" height="30px" :alt="device.title">
+                    </td>
+                    <td class="py-1">[[ device.description ]]</td>
+                    <td class="py-1">[[ device.title ]]</td>
+                    <td class="py-1">[[ device.model_name || device.model || '' ]]</td>
+                    <td class="py-1">
+                        <span v-if="device.is_hub != 1 && device.title != 'Coordinator' && device.availability">
+                            <span v-if="device.availability == 'online'" class="badge bg-success">[[ i18n.online ]]</span>
+                            <span v-else class="badge bg-danger">[[ i18n.offline ]]</span>
+                        </span>
+                        <span v-else>[[ i18n.n_a ]]</span>
+                    </td>
+                    <td class="py-1" :class="device.battery_warn">
+                        <span v-if="device.is_battery">[[ device.battery_level ]]</span>
+                    </td>
+                    <td class="py-1">
+                        <div v-for="item in (device.data || [])" :key="item.id" class="d-flex flex-nowrap">
+                            <b>[[ item.title ]]</b> -
+                            <a v-if="item.linked_object && item.linked_property" :href="'/admin/Objects?view=object&object=' + item.linked_object + '&tab=properties'">[[ item.linked_object ]].[[ item.linked_property ]]</a>
+                            <a v-if="item.linked_object && item.linked_method" :href="'/admin/Objects?view=object&object=' + item.linked_object + '&tab=methods'">[[ item.linked_object ]].[[ item.linked_method ]]</a>
+                            <span v-if="item.read_only">[r]</span>
+                            <span v-if="item.process_type">[a]</span>
+                            <span v-if="item.round">[[ item.round ]]</span>
+                            <span v-if="item.min_period">~[[ item.min_period ]]~</span>
+                            = <b>[[ item.value ]]</b>
+                            <span v-if="item.converted">(<span>[[ item.converted ]]</span>)</span>
                         </div>
-                    {%endfor%}
-                </td>
-                <td class="py-1" id="dev{{device.id}}_updated">
-                    {{device.updated}}
-                </td>
-                <td  class="py-1" width="1%" nowrap>
-                    <div>
-                        <a href="?op=edit&id={{device.id}}" class="btn btn-success" title="{{ _('Edit')}}"><i class="feather icon-edit"></i></a>
-                        <a href="?op=delete&id={{device.id}}" onClick="return confirm('Are you sure? Please confirm.')" class="btn btn-danger" title="{{ _('Delete')}}"><i class="feather icon-trash"></i></a>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        socket.on('connect', function() {
-            sid = socket.id;
-            socket.emit('subscribeData',["z2m"]);
-        });
-        socket.on('z2m', function(data) {
-            if (data.operation == "connectionStatus") {
-                var el = document.getElementById('z2m_mqtt_status');
-                var container = document.getElementById('z2m_status_container');
-                if (el && container) {
-                    var connected = data.data.connected;
-                    var configured = data.data.configured !== false;
-                    if (connected) {
-                        el.className = 'badge bg-success';
-                        el.textContent = container.dataset.connected;
-                    } else if (configured) {
-                        el.className = 'badge bg-danger';
-                        el.textContent = container.dataset.disconnected;
-                    } else {
-                        el.className = 'badge bg-secondary';
-                        el.textContent = container.dataset.notConfigured;
-                    }
-                }
-            }
-            if (data.operation == "updateProperty"){
-                id = "z2p_"+data.data['id']+"_value"
-                if (document.getElementById(id))
-                    document.getElementById(id).innerHTML  = data.data.value;
-                id = "z2p_"+data.data['id']+"_converted"
-                if (document.getElementById(id))
-                    document.getElementById(id).innerHTML  = data.data.converted;
-            }
-            if (data.operation == "updateDevice"){
-                id = "dev"+data.data['id']+"_updated"
-                if (document.getElementById(id))
-                    document.getElementById(id).innerHTML  = data.data.updated;
-            }
+                    </td>
+                    <td class="py-1">[[ device.updated ]]</td>
+                    <td class="py-1" width="1%" nowrap>
+                        <a :href="'?op=edit&id=' + device.id" class="btn btn-success btn-sm" title="{{ _('Edit')}}"><i class="feather icon-edit"></i></a>
+                        <a href="#" @click.prevent="deleteDevice(device)" class="btn btn-danger btn-sm" title="{{ _('Delete')}}"><i class="feather icon-trash"></i></a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <style>.cursor-pointer { cursor: pointer; user-select: none; } .cursor-pointer:hover { background-color: rgba(0,0,0,0.05); }</style>
 
-        });
-        socket.emit('subscribeData',["z2m"]);
-    })
-</script>
-
-    <!-- Модальное окно с настройками -->
-    <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form  method="POST">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">{{ _('Settings')}}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="settingsModalLabel">{{ _('Settings')}}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">{{ _('Host') }}</label>
+                    <input v-model="settings.host" type="text" class="form-control">
                 </div>
-                <div class="modal-body">
-                    <!-- Поля формы -->
-                    {{ form.hidden_tag() }}
-                    <div class="mb-3">
-                        <label class="form-label">{{ _('Host') }}</label>
-                        {{ form.host(class="form-control") }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ _('Port') }}</label>
-                        {{ form.port(class="form-control") }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ _('Username') }}</label>
-                        {{ form.login(class="form-control") }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ _('Password') }}</label>
-                        {{ form.password(class="form-control") }}
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">{{ _('Topics') }}</label>
-                        {{ form.topic(class="form-control") }}
-                    </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('Port') }}</label>
+                    <input v-model.number="settings.port" type="number" class="form-control">
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Close')}}</button>
-                    <button type="submit" class="btn btn-primary">{{ _('Submit')}}</button>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('Username') }}</label>
+                    <input v-model="settings.login" type="text" class="form-control">
                 </div>
-                </form>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('Password') }}</label>
+                    <input v-model="settings.password" type="password" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('Topics') }}</label>
+                    <input v-model="settings.topic" type="text" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Close')}}</button>
+                <button type="button" class="btn btn-primary" @click="saveSettings()">{{ _('Submit')}}</button>
             </div>
         </div>
     </div>
+</div>
+</div>
 
+<script>
+window.z2mInitialData = {
+    devices: {{ devices | tojson }},
+    mqtt_connected: {{ mqtt_connected | tojson }},
+    mqtt_configured: {{ mqtt_configured | tojson }},
+    settings: {{ settings | tojson }},
+    worker_status: {{ worker_status | tojson }},
+    i18n: {
+        connected: {{ _('Connected') | tojson }},
+        disconnected: {{ _('Disconnected') | tojson }},
+        notConfigured: {{ _('Not configured') | tojson }},
+        online: {{ _('Online') | tojson }},
+        offline: {{ _('Offline') | tojson }},
+        n_a: {{ _('n/a') | tojson }},
+        filterPlaceholder: {{ _('Filter by title, description, model...') | tojson }}
+    }
+};
+</script>
 {% endblock %}
+
+{% block javascripts %}
+{{ super() }}
+<script src="{{ config.ASSETS_ROOT }}/plugins/vue/vue@2.js"></script>
+<script src="{{ config.ASSETS_ROOT }}/plugins/vue/axios.min.js"></script>
+<script src="{{ url_for(segment ~ '.static', filename='js/devices.js') }}"></script>
+{% endblock javascripts %}

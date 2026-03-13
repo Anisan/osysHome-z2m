@@ -1,11 +1,13 @@
 {
   "Connected": "Connected",
+  "All": "All",
   "Disconnected": "Disconnected",
   "Battery low": "Battery low",
   "ColorXY = Hex RGB": "ColorXY = Hex RGB",
   "Converter": "Converter",
   "Count devices": "Count devices",
   "Data": "Data",
+  "Filter by title, description, model...": "Filter by title, description, model...",
   "DateTime = timestamp": "DateTime = timestamp",
   "Default": "Default",
   "Full path": "Full path",

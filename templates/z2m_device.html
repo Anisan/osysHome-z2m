@@ -187,6 +187,7 @@
         delimiters: ['[[', ']]'], // Измененные разделители
         data: {
             isSaving: false,
+            deviceId: null,
             device: {
                 id: '', // Идентификатор 
                 title: '',
@@ -201,9 +202,23 @@
         async created() {
             await this.fetchObjects()
             const deviceId = '{{id}}';
-           //this.message = deviceId
-            if (deviceId != 'None')
-                this.fetchDevice(deviceId);
+            this.deviceId = deviceId !== 'None' ? parseInt(deviceId) : null;
+            if (this.deviceId)
+                this.fetchDevice(this.deviceId);
+
+            if (typeof socket !== 'undefined') {
+                socket.emit('subscribeData', ["z2m"]);
+                this._z2mHandler = (data) => this.handleZ2mEvent(data);
+                socket.on('z2m', this._z2mHandler);
+            }
+        },
+        beforeDestroy() {
+            if (typeof socket !== 'undefined') {
+                socket.emit('unsubscribeData', ["z2m"]);
+                if (this._z2mHandler && socket.off) {
+                    socket.off('z2m', this._z2mHandler);
+                }
+            }
         },
         computed:{
             objectOptions(){
@@ -251,10 +266,42 @@
                         this.isSaving = false
                     });
             },
-
+            handleZ2mEvent(data){
+                if (!this.device || !this.device.id) return;
+                if (data.operation === "updateProperty"){
+                    const prop = data.data || {};
+                    if (prop.device_id !== this.device.id) return;
+                    if (!this.device.props) this.device.props = [];
+                    let found = false;
+                    for (let i = 0; i < this.device.props.length; i++){
+                        const p = this.device.props[i];
+                        if (p.id === prop.id){
+                            this.$set(this.device.props, i, Object.assign({}, p, {
+                                value: prop.value,
+                                converted: prop.converted,
+                                updated: prop.updated
+                            }));
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found){
+                        this.device.props.push(prop);
+                    }
+                }
+                if (data.operation === "updateDevice"){
+                    const d = data.data || {};
+                    if (d.id === this.device.id && d.updated){
+                        this.$set(this.device, 'updated', d.updated);
+                    }
+                }
+            },
             delProp(id) {
                 // Удаляем запись из словаря
-                this.$delete(this.device.props, id);
+                const idx = this.device.props.findIndex(p => p.id === id);
+                if (idx !== -1) {
+                    this.device.props.splice(idx, 1);
+                }
                 //todo delete from DB
                 axios.get(`/z2m/delete_prop/${id}`)
                     .then(response => {

@@ -1,11 +1,13 @@
 {
   "Connected": "Подключено",
+  "All": "Все",
   "Disconnected": "Отключено",
   "Battery low": "Низкий заряд батареи",
   "ColorXY = Hex RGB": "ColorXY = Hex RGB",
   "Converter": "Конвертер",
   "Count devices": "Количество устройств",
   "Data": "Данные",
+  "Filter by title, description, model...": "Фильтр по названию, описанию, модели...",
   "DateTime = timestamp": "datetime = timestamp",
   "Default": "По умолчанию",
   "Full path": "Полный путь",
