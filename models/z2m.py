@@ -4,6 +4,7 @@ class ZigbeeDevices(SurrogatePK, db.Model):
     __tablename__ = 'zigbeedevices'
     title = Column(db.String(100))
     ieeaddr = Column(db.String(255))
+    availability = Column(db.String(20))  # online/offline — fallback при пустом кэше (перезагрузка страницы)
     description = Column(db.String(255))
     is_hub = Column(db.Integer)
     is_battery = Column(db.Integer)

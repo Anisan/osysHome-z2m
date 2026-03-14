@@ -31,5 +31,22 @@
   "Loading...": "Загрузка...",
   "Refresh": "Обновить",
   "n/a": "н/д",
-  "online/offline = 1/0": "online/offline = 1/0"
+  "online/offline = 1/0": "online/offline = 1/0",
+  "ON/OFF (1/0)": "ON/OFF (1/0)",
+  "OPEN/CLOSE (1/0)": "OPEN/CLOSE (1/0)",
+  "LOCK/UNLOCK (1/0)": "LOCK/UNLOCK (1/0)",
+  "Not linked": "Не связано",
+  "Set value": "Установить значение",
+  "Current": "Текущее",
+  "Send": "Отправить",
+  "Manage Zigbee devices via MQTT": "Управление Zigbee-устройствами через MQTT",
+  "No devices found": "Устройства не найдены",
+  "Total": "Всего",
+  "Offline": "Офлайн",
+  "Worker": "Воркер",
+  "Devices": "Устройства",
+  "Actions": "Действия",
+  "Status": "Статус",
+  "Hide cards": "Скрыть карточки",
+  "Show cards": "Показать карточки"
 }

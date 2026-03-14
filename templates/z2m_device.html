@@ -57,47 +57,66 @@
           </div>
         </div>
         
-        <div class="card mt-3">
-            <div class="card-header">
-                <h5 class="card-title">{{ _('Parameters')}}</h5>
+        <div class="card mt-3 shadow-sm border">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <h5 class="card-title mb-0"><i class="fas fa-sliders-h me-2 text-muted"></i>{{ _('Parameters')}}</h5>
+                <span class="badge bg-secondary">[[ device.props.length ]]</span>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
+                <style>
+                    .z2m-prop-table { border-color: var(--bs-border-color); }
+                    .z2m-prop-table tbody tr:nth-child(even) { background: var(--bs-tertiary-bg); }
+                    .z2m-prop-table tbody tr:hover { background: var(--bs-secondary-bg); }
+                </style>
                 <div class="table-responsive" v-if="device.props.length > 0">
-                    <table class="table table-hover table-striped">
+                    <table class="table table-hover z2m-prop-table mb-0">
                         <thead>
                             <tr>
                                 <th>{{ _('Title')}}</th>
                                 <th>{{ _('Value')}}</th>
                                 <th>{{ _('Link')}}</th>
-                                <th>{{ _('Updated')}}</th>
-                                <th>&nbsp;</th>
+                                <th class="text-end" style="width: 90px;">&nbsp;</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="(item,index) in device.props" :key="'cmnd_'+index">
-                                <td><b>[[ item.title ]]</b></td>
-                                <td>[[ item.value ]] <b v-if="item.converted">([[item.converted]])</b></td>
-                                <td>
-                                    <div v-if="item.linked_object">
-                                        <a v-if="item.linked_object && item.linked_property" class="badge bg-secondary" :href="'/admin/Objects?view=object&object='+item.linked_object+'&tab=properties'">[[item.linked_object]].[[item.linked_property]]</a>
-                                        <a v-if="item.linked_object && item.linked_method" class="badge bg-secondary" :href="'/admin/Objects?view=object&object='+item.linked_object+'&tab=methods'">[[item.linked_object]].[[item.linked_method]]</a>
-                                        <span v-if="item.read_only" class="ms-1">[r]</span>
-                                        <span v-if="item.process_type == 1" class="ms-1">[a]</span>
-                                        <span v-if="item.round" class="ms-1">{[[item.round]]}</span>
-                                        <span v-if="item.min_period" class="ms-1">~[[item.min_period]]~</span>
-                                    </div>
+                            <tr v-for="(item, index) in device.props" :key="'prop_'+index">
+                                <td class="align-middle"><b>[[ item.title ]]</b></td>
+                                <td class="align-middle">
+                                    <span v-if="item.value != null && item.value !== ''">[[ item.value ]]</span>
+                                    <b v-if="item.converted" class="text-muted">([[ item.converted ]])</b>
+                                    <span v-else class="text-muted">—</span>
+                                    <span v-if="item.updated" class="text-muted small ms-1">[[ item.updated ]]</span>
                                 </td>
-                                <td>[[ item.updated ]]</td>
-                                <td>
-                                    <a class="btn btn-success ms-2 ms-auto" @click="editProp(item)" title="{{ _('Edit')}}"><i class="fas fa-pencil-alt"></i></a>
-                                    <a class="btn btn-danger ms-2 ms-auto" @click="delProp(item.id)" title="{{ _('Delete')}}"><i class="fas fa-trash"></i></a>
+                                <td class="align-middle">
+                                    <template v-if="item.linked_object">
+                                        <a v-if="item.linked_property" class="badge bg-primary text-decoration-none me-1"
+                                           :href="'/admin/Objects?view=object&object='+item.linked_object+'&tab=properties'">[[ item.linked_object ]].[[ item.linked_property ]]</a>
+                                        <a v-if="item.linked_method" class="badge bg-secondary text-decoration-none me-1"
+                                           :href="'/admin/Objects?view=object&object='+item.linked_object+'&tab=methods'">[[ item.linked_object ]].[[ item.linked_method ]]</a>
+                                        <span v-if="item.read_only" class="badge bg-warning text-body ms-1" title="{{ _('Readonly')}}"><i class="fas fa-lock"></i></span>
+                                        <span v-if="item.process_type == 1" class="badge bg-info ms-1" title="{{ _('All')}}"><i class="fas fa-sync-alt"></i></span>
+                                        <span v-if="item.round != null && item.round !== ''" class="badge bg-secondary ms-1">r[[ item.round ]]</span>
+                                        <span v-if="item.min_period != null && item.min_period !== ''" class="badge bg-secondary ms-1">[[ item.min_period ]]ms</span>
+                                        <span v-if="item.converter != null && item.converter !== 0" class="badge bg-info ms-1">[[ converterLabel(item.converter) ]]</span>
+                                    </template>
+                                    <span v-else class="badge rounded-pill border text-body-secondary">{{ _('Not linked')}}</span>
+                                </td>
+                                <td class="align-middle text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-primary" @click="editProp(item)" title="{{ _('Edit')}}"><i class="fas fa-pencil-alt"></i></button>
+                                        <button type="button" class="btn btn-outline-success" @click="openSetValueModal(item)" title="{{ _('Set value')}}"><i class="fas fa-edit"></i></button>
+                                        <button type="button" class="btn btn-outline-danger" @click="delProp(item.id)" title="{{ _('Delete')}}"><i class="fas fa-trash"></i></button>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <div v-else >{{ _('Empty')}}</div>
-    </div>
+                <div v-else class="text-center py-4 text-body-secondary">
+                    <i class="fas fa-inbox fa-2x mb-2 opacity-50"></i>
+                    <p class="mb-0 small">{{ _('Empty')}}</p>
+                </div>
+            </div>
         </div>
         <div class="my-2 mt-3">
             <button class="btn btn-success" type="submit">
@@ -124,17 +143,21 @@
                             </label>
                             <select-with-filter placeholder="{{ _('Select object')}}" :options="objectOptions" v-model="edit_item.linked_object" @changed="edit_item.linked_property = null"></select-with-filter>
                         </div>
-                        <div v-if="edit_item.linked_object && edit_item.linked_object in objects">
+                        <div v-if="edit_item.linked_object">
                             <label class="form-check-label" for="flexCheckDefault">
                                 {{ _('Linked property')}}
                             </label>
-                            <select-with-filter placeholder="{{ _('Select property')}}" :options="objects[edit_item.linked_object].properties" v-model="edit_item.linked_property"></select-with-filter>
+                            <select-with-filter v-if="edit_item.linked_object in objects" :key="'prop_'+edit_item.id+'_'+edit_item.linked_object"
+                                placeholder="{{ _('Select property')}}" :options="objects[edit_item.linked_object].properties" v-model="edit_item.linked_property"></select-with-filter>
+                            <input v-else class="form-control" type="text" :value="edit_item.linked_property || ''" readonly>
                         </div>
-                        <div v-if="edit_item.linked_object && edit_item.linked_object in objects">
+                        <div v-if="edit_item.linked_object">
                             <label class="form-check-label" for="flexCheckDefault">
                                 {{ _('Linked method')}}
                             </label>
-                            <select-with-filter placeholder="Select method" :options="objects[edit_item.linked_object].methods" v-model="edit_item.linked_method"></select-with-filter>
+                            <select-with-filter v-if="edit_item.linked_object in objects" :key="'meth_'+edit_item.id+'_'+edit_item.linked_object"
+                                placeholder="Select method" :options="objects[edit_item.linked_object].methods" v-model="edit_item.linked_method"></select-with-filter>
+                            <input v-else class="form-control" type="text" :value="edit_item.linked_method || ''" readonly>
                         </div>
                         <div  v-if="edit_item.linked_object">
                             <label class="form-label me-3">{{ _('Update value')}}</label>
@@ -170,6 +193,9 @@
                                 <option :value="3">{{ _('ColorXY = Hex RGB')}}</option>
                                 <option :value="4">{{ _('DateTime = timestamp')}}</option>
                                 <option :value="5">{{ _('Value <=> %')}}</option>
+                                <option :value="6">{{ _('ON/OFF (1/0)')}}</option>
+                                <option :value="7">{{ _('OPEN/CLOSE (1/0)')}}</option>
+                                <option :value="8">{{ _('LOCK/UNLOCK (1/0)')}}</option>
                             </select>
                         </div>
                     </div>
@@ -178,6 +204,35 @@
                     </div>
                 </div>
             </div>
+    </div>
+    <!-- Модальное окно установки значения -->
+    <div class="modal fade" id="setValueModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>{{ _('Set value')}}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div v-if="set_value_item" class="modal-body">
+                    <p class="text-muted mb-2">[[ set_value_item.title ]]</p>
+                    <div class="mb-2">
+                        <label class="form-label">{{ _('Value')}}</label>
+                        <input type="text" class="form-control" v-model="set_value_input" :placeholder="set_value_item.value || ''"
+                               @keyup.enter="submitSetValue">
+                    </div>
+                    <p class="small text-muted mb-0" v-if="set_value_item.value">
+                        <i class="far fa-clock me-1"></i>{{ _('Current')}}: [[ set_value_item.value ]]
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Cancel')}}</button>
+                    <button type="button" class="btn btn-success" @click="submitSetValue" :disabled="set_value_submitting">
+                        <span v-if="set_value_submitting" class="spinner-border spinner-border-sm me-1"></span>
+                        <i v-else class="fas fa-paper-plane me-1"></i>{{ _('Send')}}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 <script src="{{ config.ASSETS_ROOT }}/js/components/select-with-filter.js"></script>
@@ -197,7 +252,9 @@
             message: '',
             objects:[],
             edit_item:null,
-            
+            set_value_item: null,
+            set_value_input: '',
+            set_value_submitting: false,
         },
         async created() {
             await this.fetchObjects()
@@ -230,14 +287,23 @@
             }
         },
         methods: {
+            converterLabel(c) {
+                const labels = { 0: 'Default', 1: 'No convert', 2: 'online/offline', 3: 'ColorXY', 4: 'DateTime',
+                    5: '%', 6: 'ON/OFF', 7: 'OPEN/CLOSE', 8: 'LOCK/UNLOCK' };
+                return labels[c] || 'Default';
+            },
+            processTypeLabel(pt) {
+                return pt === 1 ? 'All' : 'Only new';
+            },
             fetchObjects(){
-                axios.get(`/api/object/list/details`)
+                return axios.get(`/api/object/list/details`)
                     .then(response => {
-                        this.objects = response.data.result
+                        this.objects = response.data.result || {};
                     })
                     .catch(error => {
                         console.log(error)
                         this.message = 'Error fetching: ' + error;
+                        this.objects = {};
                     });
             },
             fetchDevice(deviceId) {
@@ -313,9 +379,39 @@
                     });
             },
             editProp(item){
-                this.edit_item=item
-                console.log(this.edit_item)
+                this.edit_item = item;
+                if (this.edit_item.converter === undefined || this.edit_item.converter === null) {
+                    this.$set(this.edit_item, 'converter', 0);
+                }
+                if (this.edit_item.process_type === undefined || this.edit_item.process_type === null) {
+                    this.$set(this.edit_item, 'process_type', 0);
+                }
+                if (this.edit_item.read_only === undefined || this.edit_item.read_only === null) {
+                    this.$set(this.edit_item, 'read_only', false);
+                }
                 $('#exampleModal').modal('show');
+            },
+            openSetValueModal(item) {
+                this.set_value_item = item;
+                this.set_value_input = '';
+                this.set_value_submitting = false;
+                $('#setValueModal').modal('show');
+            },
+            submitSetValue() {
+                if (!this.set_value_item || !this.device) return;
+                this.set_value_submitting = true;
+                axios.post('/z2m/api/device/set_prop', {
+                    device_id: this.device.id,
+                    prop: this.set_value_item.title,
+                    value: this.set_value_input
+                }).then(response => {
+                    this.message = 'Value sent';
+                    $('#setValueModal').modal('hide');
+                }).catch(error => {
+                    this.message = 'Error: ' + (error.response?.data?.error || error);
+                }).finally(() => {
+                    this.set_value_submitting = false;
+                });
             }
         }
     });

@@ -10,6 +10,7 @@ new Vue({
         workerStatus: { running: false, queue_size: 0, queue_max: 0 },
         filterSearch: '',
         filterStatus: '',
+        cardsVisible: true,
         sortColumn: 'title',
         sortOrder: 'asc',
         i18n: {
@@ -35,11 +36,40 @@ new Vue({
                 var description = (dev.description || '').toLowerCase();
                 var model = ((dev.model_name || dev.model || '') + '').toLowerCase();
                 var availability = (dev.availability || 'n/a').toLowerCase();
-            var matchSearch = !search || title.indexOf(search) >= 0 ||
-                description.indexOf(search) >= 0 || model.indexOf(search) >= 0;
-            var matchStatus = !statusFilter || availability === statusFilter;
+                var matchSearch = !search || title.indexOf(search) >= 0 ||
+                    description.indexOf(search) >= 0 || model.indexOf(search) >= 0;
+                var matchStatus = true;
+                if (statusFilter === 'battery') {
+                    if (!(dev.is_battery == 1 || dev.is_battery === true)) matchStatus = false;
+                    else {
+                        var bl = dev.battery_level;
+                        var p = (bl != null) ? ((bl <= 100) ? bl : Math.round(bl / 254 * 100)) : null;
+                        matchStatus = p != null && p > 0 && p <= 30;
+                    }
+                } else if (statusFilter) {
+                    matchStatus = availability === statusFilter;
+                }
                 return matchSearch && matchStatus;
             });
+        },
+        stats() {
+            var total = this.devices.length;
+            var online = 0, offline = 0, batteryCount = 0, lowBattery = 0, hubs = 0;
+            this.devices.forEach(function(dev) {
+                if (dev.is_hub === 1 || dev.title === 'Coordinator') {
+                    hubs++;
+                } else {
+                    var av = (dev.availability || '').toLowerCase();
+                    if (av === 'online') online++;
+                    else if (av === 'offline') offline++;
+                    if (dev.is_battery == 1 || dev.is_battery === true) {
+                        var l = dev.battery_level;
+                        var pct = (l != null) ? ((l <= 100) ? l : Math.round(l / 254 * 100)) : null;
+                        if (pct != null && pct > 0 && pct <= 30) { batteryCount++; lowBattery++; }
+                    }
+                }
+            });
+            return { total: total, online: online, offline: offline, batteryCount: batteryCount, lowBattery: lowBattery, hubs: hubs };
         },
         sortedDevices() {
             var list = this.filteredDevices.slice();
@@ -72,8 +102,17 @@ new Vue({
         this.settings = window.z2mInitialData.settings || this.settings;
         this.workerStatus = window.z2mInitialData.worker_status || this.workerStatus;
         this.i18n = window.z2mInitialData.i18n || this.i18n;
+        try {
+            var stored = localStorage.getItem('z2m_cardsVisible');
+            if (stored !== null) this.cardsVisible = stored === 'true';
+        } catch (e) {}
         this.connectSocket();
         this.fetchDevices();
+    },
+    watch: {
+        cardsVisible: function(val) {
+            try { localStorage.setItem('z2m_cardsVisible', val); } catch (e) {}
+        }
     },
     beforeDestroy() {
         if (this._visibilityHandler) {
@@ -109,11 +148,12 @@ new Vue({
                     var found = false;
                     for (var i = 0; i < this.devices.length; i++) {
                         var dev = this.devices[i];
-                        if (targetDeviceId && dev.id !== targetDeviceId) {
-                            continue;
-                        }
+                        if (targetDeviceId != null && dev.id !== targetDeviceId) continue;
+                        if (targetDeviceId == null && prop.title === 'availability') return; // без device_id не обновляем availability
                         if (prop.title === 'availability') {
-                            this.$set(dev, 'availability', prop.value);
+                            if (prop.value !== undefined && prop.value !== null && String(prop.value).trim() !== '') {
+                                this.$set(dev, 'availability', prop.value);
+                            }
                             return;
                         }
                         if (!dev.data) dev.data = [];
@@ -137,8 +177,10 @@ new Vue({
                     for (var k = 0; k < this.devices.length; k++) {
                         if (this.devices[k].id === d.id) {
                             this.$set(this.devices[k], 'updated', d.updated);
-                            if (d.availability !== undefined) {
-                                this.$set(this.devices[k], 'availability', d.availability);
+                            // Обновлять availability только при валидном значении — не затирать на н/д
+                            var av = d.availability;
+                            if (av !== undefined && av !== null && String(av).trim() !== '') {
+                                this.$set(this.devices[k], 'availability', av);
                             }
                             return;
                         }
@@ -163,7 +205,18 @@ new Vue({
             this.loadingDevices = true;
             try {
                 var r = await axios.get('/z2m/api/devices');
-                this.devices = r.data;
+                var newDevices = r.data;
+                // Если API вернул availability: null (кэш пуст — другой worker / рестарт), сохраняем
+                // уже известный клиенту статус, иначе столбец «В сети» станет н/д
+                var oldById = {};
+                this.devices.forEach(function(d) { oldById[d.id] = d; });
+                newDevices.forEach(function(d) {
+                    var old = oldById[d.id];
+                    if (old && (d.availability === undefined || d.availability === null || d.availability === '') && (old.availability === 'online' || old.availability === 'offline')) {
+                        d.availability = old.availability;
+                    }
+                });
+                this.devices = newDevices;
             } catch (e) {
                 console.error('Fetch devices error:', e);
             } finally {
@@ -212,6 +265,9 @@ new Vue({
             if (confirm('Are you sure? Please confirm.')) {
                 location.href = '?op=delete&id=' + device.id;
             }
+        },
+        applyFilterCard(filterValue) {
+            this.filterStatus = this.filterStatus === filterValue ? '' : filterValue;
         }
     }
 });

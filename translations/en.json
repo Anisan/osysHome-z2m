@@ -31,5 +31,22 @@
   "Loading...": "Loading...",
   "Refresh": "Refresh",
   "n/a": "n/a",
-  "online/offline = 1/0": "online/offline = 1/0"
+  "online/offline = 1/0": "online/offline = 1/0",
+  "ON/OFF (1/0)": "ON/OFF (1/0)",
+  "OPEN/CLOSE (1/0)": "OPEN/CLOSE (1/0)",
+  "LOCK/UNLOCK (1/0)": "LOCK/UNLOCK (1/0)",
+  "Not linked": "Not linked",
+  "Set value": "Set value",
+  "Current": "Current",
+  "Send": "Send",
+  "Manage Zigbee devices via MQTT": "Manage Zigbee devices via MQTT",
+  "No devices found": "No devices found",
+  "Total": "Total",
+  "Offline": "Offline",
+  "Worker": "Worker",
+  "Devices": "Devices",
+  "Actions": "Actions",
+  "Status": "Status",
+  "Hide cards": "Hide cards",
+  "Show cards": "Show cards"
 }

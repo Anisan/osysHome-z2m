@@ -264,6 +264,7 @@ class z2m(BasePlugin):
                             try:
                                 obj_name = f"{prop.linked_object}.{prop.linked_property}"
                                 value = getProperty(obj_name, 'value')
+                                updated = getProperty(obj_name, 'changed')
                             except Exception:
                                 value = None
 
@@ -292,19 +293,37 @@ class z2m(BasePlugin):
                         prop_rec = session.query(ZigbeeProperties).filter(ZigbeeProperties.device_id == device.id,ZigbeeProperties.title == prop['title']).one()
                         if prop_rec.linked_object:
                             removeLinkFromObject(prop_rec.linked_object, prop_rec.linked_property, self.name)
-                        prop_rec.linked_object = prop['linked_object']
-                        prop_rec.linked_property = prop['linked_property']
-                        prop_rec.linked_method = prop['linked_method']
-                        prop_rec.converter = prop.get('converter',0)
-                        prop_rec.read_only = 1 if prop['read_only'] else 0
-                        prop_rec.round = prop['round']
-                        prop_rec.min_period = prop['min_period']
-                        prop_rec.process_type = prop['process_type']
+                        prop_rec.linked_object = prop.get('linked_object')
+                        prop_rec.linked_property = prop.get('linked_property')
+                        prop_rec.linked_method = prop.get('linked_method')
+                        # Не сбрасывать converter, round, min_period при null/пусто — сохранить текущие
+                        if 'converter' in prop and prop['converter'] is not None:
+                            prop_rec.converter = prop['converter']
+                        if 'read_only' in prop:
+                            prop_rec.read_only = 1 if prop['read_only'] else 0
+                        if 'round' in prop:
+                            v = prop['round']
+                            if v is not None and v != '':
+                                try:
+                                    prop_rec.round = int(v)
+                                except (TypeError, ValueError):
+                                    prop_rec.round = None
+                        if 'min_period' in prop:
+                            v = prop['min_period']
+                            if v is not None and v != '':
+                                try:
+                                    prop_rec.min_period = int(v)
+                                except (TypeError, ValueError):
+                                    prop_rec.min_period = None
+                        if 'process_type' in prop:
+                            prop_rec.process_type = prop['process_type'] if prop['process_type'] is not None else 0
                         if prop_rec.linked_object and prop_rec.read_only == 0:
                             setLinkToObject(prop_rec.linked_object, prop_rec.linked_property, self.name)
 
-                        self.logger.debug(f"❌ Delete from cache - z2m:prop_{data['id']}_{prop['title']}")
-                        cache.delete(f"z2m:prop_{data['id']}_{prop['title']}")
+                        # availability заполняется только из MQTT — не удалять из кэша при сохранении
+                        if prop['title'] != 'availability':
+                            self.logger.debug(f"❌ Delete from cache - z2m:prop_{data['id']}_{prop['title']}")
+                            cache.delete(f"z2m:prop_{data['id']}_{prop['title']}")
 
                     session.commit()
 
@@ -329,7 +348,7 @@ class z2m(BasePlugin):
                 if device.is_battery:
                     vdev['battery_warn'] = 'text-danger' if device.battery_level < 30 else ('text-warning' if device.battery_level < 360 else 'text-success')
                 prop_cache = cache.get(f"z2m:prop_{device.id}_availability") or {}
-                vdev['availability'] = prop_cache.get('value')
+                vdev['availability'] = prop_cache.get('value') or getattr(device, 'availability', None)
 
                 linked = []
                 for p in props:
@@ -359,6 +378,23 @@ class z2m(BasePlugin):
             self._connect_mqtt()
             return jsonify({"success": True})
         
+        @self.blueprint.route('/z2m/api/device/set_prop', methods=['POST'])
+        @handle_admin_required
+        def api_set_prop():
+            """Установить значение свойства устройства (отправить в Zigbee2MQTT /set)"""
+            data = request.get_json() or {}
+            device_id = data.get('device_id')
+            prop_title = data.get('prop')
+            value = data.get('value')
+            if not device_id or not prop_title:
+                return jsonify({"success": False, "error": "device_id and prop required"}), 400
+            with session_scope() as session:
+                device = session.query(ZigbeeDevices).filter(ZigbeeDevices.id == int(device_id)).one_or_none()
+                if not device:
+                    return jsonify({"success": False, "error": "Device not found"}), 404
+                self.set_payload(device.title, {prop_title: value})
+            return jsonify({"success": True})
+
         @self.blueprint.route('/z2m/api/worker_status', methods=['GET'])
         @handle_admin_required
         def api_worker_status():
@@ -471,11 +507,23 @@ class z2m(BasePlugin):
                         new_value = {"x": None, "y": None}
                 elif property.converter == 5:
                     new_value = round(val * 254 / 100)
+                elif property.converter == 6:
+                    new_value = 'ON' if (val in (1, True) or str(val).lower() in ('1', 'true', 'on')) else 'OFF'
+                elif property.converter == 7:
+                    new_value = 'OPEN' if (val in (1, True) or str(val).lower() in ('1', 'true', 'on', 'open')) else 'CLOSE'
+                elif property.converter == 8:
+                    new_value = 'LOCK' if (val in (1, True) or str(val).lower() in ('1', 'true', 'on')) else 'UNLOCK'
 
                 device = session.get(ZigbeeDevices, property.device_id)
-                # send  to zigbee device
+                # Zigbee2MQTT не пересылает /set устройствам в offline — /get может разбудить устройство
+                prop_cache = cache.get(f"z2m:prop_{property.device_id}_availability") or {}
+                if (prop_cache.get('value') or '').lower() == 'offline':
+                    get_topic = device.full_path + "/get"
+                    get_payload = json.dumps({property.title: ""})
+                    self.mqttPublish(get_topic, get_payload)
+                    time.sleep(0.4)
                 topic = device.full_path + "/set"
-                payload = json.dumps({property.title:new_value})
+                payload = json.dumps({property.title: new_value})
                 self.mqttPublish(topic, payload)
 
     def set_payload(self, device_name:str, payload:dict):
@@ -488,10 +536,14 @@ class z2m(BasePlugin):
         with session_scope() as session:
             device = session.query(ZigbeeDevices).filter(ZigbeeDevices.title == device_name).one_or_none()
             if device:
-                # send to zigbee device
+                prop_cache = cache.get(f"z2m:prop_{device.id}_availability") or {}
+                if (prop_cache.get('value') or '').lower() == 'offline' and payload:
+                    get_topic = device.full_path + "/get"
+                    first_key = next(iter(payload.keys()), 'state')
+                    self.mqttPublish(get_topic, json.dumps({first_key: ""}))
+                    time.sleep(0.4)
                 topic = device.full_path + "/set"
-                payload = json.dumps(payload)
-                self.mqttPublish(topic, payload)
+                self.mqttPublish(topic, json.dumps(payload))
 
     # Функция обратного вызова для подключения к брокеру MQTT
     def on_connect(self, client, userdata, flags, rc):
@@ -598,7 +650,10 @@ class z2m(BasePlugin):
                 device.full_path = re.sub(r'\/bridge.+|\/availability$', '', path)
                 session.commit()
 
-                self.sendDataToWebsocket("updateDevice",row2dict(device))
+                self.sendDataToWebsocket("updateDevice", {
+                    "id": device.id,
+                    "updated": device.updated,
+                })
 
                 cache.set("z2m_dev:" + did, device.id, timeout=0)
                 device_id = device.id
@@ -631,11 +686,12 @@ class z2m(BasePlugin):
                             device.title = friendly_name
                             device.updated = get_now_to_utc()
                             session.commit()
-            batch = {"prop_updates": [], "battery": [], "side_effects": []}
+            batch = {"prop_updates": [], "battery": [], "availability": [], "side_effects": []}
             if '/availability' in path:
                 try:
                     v = json.loads(value)
-                    self.process_data(device_id, 'availability', v['state'], batch=batch)
+                    state = v.get('state', 'offline') if isinstance(v, dict) else str(v)
+                    self.process_data(device_id, 'availability', state, batch=batch)
                 except Exception as ex:
                     self.logger.error(ex, exc_info=True)
             else:
@@ -651,12 +707,15 @@ class z2m(BasePlugin):
                         self.process_data(device_id, k, v, batch=batch)
                     except Exception as ex:
                         self.logger.error(ex, exc_info=True)
-            # Batch DB: одно сохранение для батареи; значения свойств храним только в кэше
+            # Batch DB: батарея и availability — persistence для API при перезагрузке
             now_utc = get_now_to_utc()
             with session_scope() as session:
                 for bu in batch["battery"]:
                     session.execute(update(ZigbeeDevices).where(ZigbeeDevices.id == bu["device_id"]).values(
                         is_battery=1, battery_level=bu["value"]))
+                for av in batch["availability"]:
+                    session.execute(update(ZigbeeDevices).where(ZigbeeDevices.id == av["device_id"]).values(
+                        availability=av["value"]))
                 session.commit()
             # updated устройства только в памяти/через WebSocket
             cache.set(f"z2m_dev_updated:{device_id}", now_utc, timeout=0)
@@ -674,11 +733,12 @@ class z2m(BasePlugin):
                 if se.get("property_"):
                     self.sendDataToWebsocket("updateProperty", se["property_"])
             update_payload = {"id": device_id, "updated": now_utc}
-            if "/availability" in path:
-                prop_cache = cache.get(f"z2m:prop_{device_id}_availability") or {}
-                av = prop_cache.get("value")
-                if av is not None:
-                    update_payload["availability"] = av
+            # Всегда включать availability при наличии в кэше — иначе после обновления других свойств
+            # клиент может потерять статус (н/д), т.к. Vue реактивность требует явной передачи
+            prop_cache = cache.get(f"z2m:prop_{device_id}_availability") or {}
+            av = prop_cache.get("value")
+            if av is not None:
+                update_payload["availability"] = av
             self.sendDataToWebsocket("updateDevice", update_payload)
 
     def process_list_of_devices(self, path, data):
@@ -777,6 +837,18 @@ class z2m(BasePlugin):
                 converted = '0'
             elif value in ['true', 'on', 'yes', 'close']:
                 converted = '1'
+        elif property_['converter'] == 6:
+            if isinstance(value, str):
+                value = value.lower()
+            converted = '1' if value in ['on', 'true', 'yes', '1'] else '0'
+        elif property_['converter'] == 7:
+            if isinstance(value, str):
+                value = value.lower()
+            converted = '1' if value in ['open', 'opened'] else '0'
+        elif property_['converter'] == 8:
+            if isinstance(value, str):
+                value = value.lower()
+            converted = '1' if value in ['lock', 'locked'] else '0'
         elif property_['converter'] == 2:
             if value == 'offline':
                 converted = '0'
@@ -852,6 +924,13 @@ class z2m(BasePlugin):
         self.logger.debug(f"💾 Save in cache - z2m:prop_{device_id}_{prop} = {property_}")
         cache.set(f"z2m:prop_{device_id}_{prop}", property_, timeout=0)
 
+        if prop == 'availability':
+            if batch is not None:
+                batch["availability"].append({"device_id": device_id, "value": str(value)})
+            else:
+                with session_scope() as session:
+                    session.execute(update(ZigbeeDevices).where(ZigbeeDevices.id == device_id).values(availability=str(value)))
+                    session.commit()
         if prop == 'battery':
             if batch is not None:
                 batch["battery"].append({"device_id": device_id, "value": value})
