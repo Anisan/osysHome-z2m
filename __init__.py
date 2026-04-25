@@ -806,7 +806,8 @@ class z2m(BasePlugin):
             if isinstance(property_['updated'], str):
                 from dateutil import parser
                 property_['updated'] = parser.parse(property_['updated'])
-            if time.time() - property_['updated'].timestamp() < property_['min_period']:  # todo fix
+            elapsed_ms = (time.time() - property_['updated'].timestamp()) * 1000.0
+            if elapsed_ms < property_['min_period']:
                 return
         if isinstance(value, (dict, list)):
             value = json.dumps(value, separators=(',', ':'), ensure_ascii=False)
