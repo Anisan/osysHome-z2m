@@ -15,6 +15,7 @@ from app.core.main.BasePlugin import BasePlugin
 from plugins.z2m.models.z2m import ZigbeeDevices, ZigbeeProperties
 from app.core.lib.object import callMethodThread, updatePropertyThread, setPropertyThread, setLinkToObject, removeLinkFromObject, getProperty
 from app.core.lib.common import addNotify, CategoryNotify
+from app.core.utilities.mqtt_errors import describe_mqtt_disconnect
 from plugins.z2m.forms.SettingForms import SettingsForm
 
 class z2m(BasePlugin):
@@ -33,6 +34,16 @@ class z2m(BasePlugin):
         self._worker_thread = None
         self._worker_stop_event = threading.Event()
         self._last_worker_status_ts = 0
+
+    def _get_mqtt_protocol(self):
+        """Возвращает константу версии протокола paho-mqtt из конфигурации."""
+        version = self.config.get("protocol", "3.1.1")
+        protocol_map = {
+            "3.1": mqtt.MQTTv31,
+            "3.1.1": mqtt.MQTTv311,
+            "5.0": mqtt.MQTTv5,
+        }
+        return protocol_map.get(version, mqtt.MQTTv311)
 
     def _is_connection_configured(self):
         """Проверка наличия обязательных параметров для подключения к MQTT"""
@@ -74,7 +85,10 @@ class z2m(BasePlugin):
             self._send_connection_status(False, False)
             return
         try:
-            self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+            self._client = mqtt.Client(
+                mqtt.CallbackAPIVersion.VERSION1,
+                protocol=self._get_mqtt_protocol(),
+            )
             self._client.on_connect = self.on_connect
             self._client.on_disconnect = self.on_disconnect
             self._client.on_message = self.on_message
@@ -194,6 +208,7 @@ class z2m(BasePlugin):
         if request.method == 'GET':
             settings.host.data = self.config.get('host','')
             settings.port.data = self.config.get('port',1883)
+            settings.protocol.data = self.config.get('protocol', '3.1.1')
             settings.topic.data = self.config.get('topic','')
             settings.login.data = self.config.get('login','')
             settings.password.data = self.config.get('password','')
@@ -201,6 +216,7 @@ class z2m(BasePlugin):
             if settings.validate_on_submit():
                 self.config["host"] = settings.host.data
                 self.config["port"] = settings.port.data
+                self.config["protocol"] = settings.protocol.data
                 self.config["topic"] = settings.topic.data
                 self.config["login"] = settings.login.data
                 self.config["password"] = settings.password.data
@@ -225,6 +241,7 @@ class z2m(BasePlugin):
         settings_dict = {
             "host": self.config.get("host", ""),
             "port": self.config.get("port", 1883),
+            "protocol": self.config.get("protocol", "3.1.1"),
             "topic": self.config.get("topic", ""),
             "login": self.config.get("login", ""),
             "password": self.config.get("password", ""),
@@ -371,6 +388,7 @@ class z2m(BasePlugin):
             data = request.get_json() or {}
             self.config["host"] = data.get("host", "")
             self.config["port"] = int(data.get("port", 1883))
+            self.config["protocol"] = data.get("protocol", "3.1.1")
             self.config["topic"] = data.get("topic", "")
             self.config["login"] = data.get("login", "")
             self.config["password"] = data.get("password", "")
@@ -558,19 +576,12 @@ class z2m(BasePlugin):
 
     def on_disconnect(self, client, userdata, rc):
         self._send_connection_status(False, True)
-        addNotify("Disconnect MQTT",str(rc),CategoryNotify.Error,self.name)
+        msg = describe_mqtt_disconnect(rc)
         if rc == 0:
-            self.logger.info("Disconnected gracefully.")
-        elif rc == 1:
-            self.logger.info("Client requested disconnection.")
-        elif rc == 2:
-            self.logger.info("Broker disconnected the client unexpectedly.")
-        elif rc == 3:
-            self.logger.info("Client exceeded timeout for inactivity.")
-        elif rc == 4:
-            self.logger.info("Broker closed the connection.")
+            self.logger.info(msg)
         else:
-            self.logger.warning("Unexpected disconnection with code: %s", rc)
+            self.logger.warning(msg)
+            addNotify("Disconnect MQTT", msg, CategoryNotify.Error, self.name)
 
     # Функция обратного вызова для получения сообщений
     def on_message(self,client, userdata, msg):

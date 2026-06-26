@@ -6,7 +6,7 @@ new Vue({
         loadingDevices: true,
         mqttConnected: false,
         mqttConfigured: false,
-        settings: { host: '', port: 1883, topic: '', login: '', password: '' },
+        settings: { host: '', port: 1883, protocol: '3.1.1', topic: '', login: '', password: '' },
         workerStatus: { running: false, queue_size: 0, queue_max: 0 },
         filterSearch: '',
         filterStatus: '',
