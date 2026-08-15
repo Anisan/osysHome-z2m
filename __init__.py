@@ -23,7 +23,7 @@ class z2m(BasePlugin):
     def __init__(self,app):
         super().__init__(app,__name__)
         self.title = "Zigbee2mqtt"
-        self.version = 1
+        self.version = 2
         self.description = """This is a test plugin"""
         self.category = "Devices"
         self.actions = ['cycle','search', "widget"]
@@ -976,16 +976,28 @@ class z2m(BasePlugin):
         with session_scope() as session:
             devices = session.query(ZigbeeProperties).filter(ZigbeeProperties.linked_object == object_name).all()
             for device in devices:
-                if new_value is None:
+                if new_value is None and property_name is None and method_name is None:
+                    if device.linked_property:
+                        removeLinkFromObject(device.linked_object, device.linked_property, self.name)
                     device.linked_object = None
                     device.linked_property = None
                     device.linked_method = None
                 elif property_name is None and method_name is None:
+                    old_prop = device.linked_property
+                    if old_prop:
+                        removeLinkFromObject(object_name, old_prop, self.name)
                     device.linked_object = new_value
+                    if old_prop and new_value:
+                        setLinkToObject(new_value, old_prop, self.name)
                 elif property_name:
-                    device.linked_property = new_value
+                    if (device.linked_property or '') == property_name:
+                        removeLinkFromObject(object_name, property_name, self.name)
+                        device.linked_property = new_value
+                        if new_value:
+                            setLinkToObject(object_name, new_value, self.name)
                 elif method_name:
-                    device.linked_method = new_value
+                    if (device.linked_method or '') == method_name:
+                        device.linked_method = new_value
 
             session.commit()
 
